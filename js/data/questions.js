@@ -13,6 +13,13 @@ export const questions = {
             urdu: 'میں روزانہ سکول جاتا ہوں۔'
         },
         {
+            id: 'sp_q_scramble_1',
+            type: 'scramble',
+            sentence: 'I go to school every day',
+            answer: ['I', 'go', 'to', 'school', 'every', 'day'],
+            urdu: 'میں روزانہ سکول جاتا ہوں۔'
+        },
+        {
             id: 'sp_q2',
             type: 'fill',
             question: 'She _____ (cook) food.',
@@ -20,324 +27,209 @@ export const questions = {
             urdu: 'وہ کھانا پکاتی ہے۔'
         },
         {
-            id: 'sp_q3',
-            type: 'mcq',
-            question: 'Do you _____ in Pakistan?',
-            options: ['lives', 'live', 'living', 'lived'],
-            answer: 'live',
-            urdu: 'کیا آپ پاکستان میں رہتے ہیں؟'
+            id: 'sp_q_scramble_2',
+            type: 'scramble',
+            sentence: 'She cooks delicious food',
+            answer: ['She', 'cooks', 'delicious', 'food'],
+            urdu: 'وہ مزیدار کھانا پکاتی ہے۔'
         },
         {
-            id: 'sp_q4',
-            type: 'mcq',
-            question: 'He _____ not like coffee.',
-            options: ['do', 'does', 'doing', 'did'],
-            answer: 'does',
-            urdu: 'وہ کافی پسند نہیں کرتا۔'
-        },
-        {
-            id: 'sp_q5',
-            type: 'fill',
-            question: 'The sun _____ (rise) in the east.',
-            answer: 'rises',
-            urdu: 'سورج مشرق سے نکلتا ہے۔'
-        },
-        {
-            id: 'sp_q6',
-            type: 'mcq',
-            question: 'They _____ cricket on Sundays.',
-            options: ['plays', 'play', 'playing', 'played'],
-            answer: 'play',
-            urdu: 'وہ اتوار کو کرکٹ کھیلتے ہیں۔'
+            id: 'sp_match_1',
+            type: 'match_pairs',
+            pairs: [
+                { english: 'I go', urdu: 'میں جاتا ہوں' },
+                { english: 'She cooks', urdu: 'وہ پکاتی ہے' },
+                { english: 'They play', urdu: 'وہ کھیلتے ہیں' },
+                { english: 'We study', urdu: 'ہم پڑھتے ہیں' }
+            ]
         }
     ],
     presentContinuous: [
         {
             id: 'pc_q1',
             type: 'mcq',
-            question: 'I am _____ (study) right now.',
-            options: ['study', 'studies', 'studying', 'studied'],
-            answer: 'studying',
-            urdu: 'میں ابھی پڑھ رہا ہوں۔'
-        },
-        {
-            id: 'pc_q2',
-            type: 'mcq',
-            question: 'Is it _____ (rain) outside?',
-            options: ['rain', 'raining', 'rains', 'rained'],
-            answer: 'raining',
-            urdu: 'کیا باہر بارش ہو رہی ہے؟'
-        },
-        {
-            id: 'pc_q3',
-            type: 'fill',
-            question: 'We are _____ (wait) for the bus.',
-            answer: 'waiting',
-            urdu: 'ہم بس کا انتظار کر رہے ہیں۔'
-        },
-        {
-            id: 'pc_q4',
-            type: 'mcq',
-            question: 'She _____ watching a movie.',
-            options: ['am', 'is', 'are', 'be'],
-            answer: 'is',
-            urdu: 'وہ فلم دیکھ رہی ہے۔'
-        },
-        {
-            id: 'pc_q5',
-            type: 'mcq',
-            question: 'Why _____ they shouting?',
-            options: ['is', 'am', 'are', 'do'],
+            question: 'They _____ playing cricket.',
+            options: ['is', 'am', 'are', 'was'],
             answer: 'are',
-            urdu: 'وہ کیوں چلا رہے ہیں؟'
+            urdu: 'وہ کرکٹ کھیل رہے ہیں۔'
+        },
+        {
+            id: 'pc_q_scramble_1',
+            type: 'scramble',
+            sentence: 'They are playing cricket now',
+            answer: ['They', 'are', 'playing', 'cricket', 'now'],
+            urdu: 'وہ اب کرکٹ کھیل رہے ہیں۔'
+        },
+        {
+            id: 'pc_match_1',
+            type: 'match_pairs',
+            pairs: [
+                { english: 'I am going', urdu: 'میں جا رہا ہوں' },
+                { english: 'She is eating', urdu: 'وہ کھا رہی ہے' },
+                { english: 'They are running', urdu: 'وہ بھاگ رہے ہیں' }
+            ]
         }
     ],
     presentPerfect: [
         {
             id: 'pp_q1',
             type: 'mcq',
-            question: 'I have _____ (finish) my work.',
-            options: ['finish', 'finishes', 'finishing', 'finished'],
-            answer: 'finished',
-            urdu: 'میں اپنا کام ختم کر چکا ہوں۔'
-        },
-        {
-            id: 'pp_q2',
-            type: 'mcq',
-            question: 'Has she _____ the letter?',
-            options: ['write', 'wrote', 'written', 'writing'],
-            answer: 'written',
-            urdu: 'کیا وہ خط لکھ چکی ہے؟'
-        },
-        {
-            id: 'pp_q3',
-            type: 'fill',
-            question: 'They have _____ (win) the match.',
-            answer: 'won',
-            urdu: 'وہ میچ جیت چکے ہیں۔'
-        },
-        {
-            id: 'pp_q4',
-            type: 'mcq',
-            question: 'We _____ never been to London.',
-            options: ['has', 'have', 'had', 'having'],
+            question: 'I _____ already eaten.',
+            options: ['has', 'have', 'had', 'am'],
             answer: 'have',
-            urdu: 'ہم کبھی لندن نہیں گئے۔'
-        }
-    ],
-    simplePast: [
-        {
-            id: 'pas_q1',
-            type: 'mcq',
-            question: 'He _____ (write) a letter yesterday.',
-            options: ['write', 'writes', 'wrote', 'writing'],
-            answer: 'wrote',
-            urdu: 'اس نے کل خط لکھا تھا۔'
+            urdu: 'میں پہلے ہی کھا چکا ہوں۔'
         },
         {
-            id: 'pas_q2',
-            type: 'mcq',
-            question: 'Did you _____ the movie?',
-            options: ['watch', 'watched', 'watching', 'watches'],
-            answer: 'watch',
-            urdu: 'کیا آپ نے فلم دیکھی؟'
+            id: 'pp_q_scramble_1',
+            type: 'scramble',
+            sentence: 'I have finished my homework',
+            answer: ['I', 'have', 'finished', 'my', 'homework'],
+            urdu: 'میں نے اپنا ہوم ورک ختم کر لیا ہے۔'
         },
         {
-            id: 'pas_q3',
-            type: 'fill',
-            question: 'I _____ (go) to Lahore last week.',
-            answer: 'went',
-            urdu: 'میں پچھلے ہفتے لاہور گیا۔'
-        },
-        {
-            id: 'pas_q4',
-            type: 'mcq',
-            question: 'They _____ not arrive on time.',
-            options: ['do', 'does', 'did', 'done'],
-            answer: 'did',
-            urdu: 'وہ وقت پر نہیں پہنچے۔'
-        }
-    ],
-    pastContinuous: [
-        {
-            id: 'pac_q1',
-            type: 'mcq',
-            question: 'I was _____ (sleep) when you called.',
-            options: ['sleep', 'sleeping', 'slept', 'sleeps'],
-            answer: 'sleeping',
-            urdu: 'جب آپ نے کال کی تو میں سو رہا تھا۔'
-        },
-        {
-            id: 'pac_q2',
-            type: 'mcq',
-            question: 'Were they _____ (play) in the rain?',
-            options: ['play', 'played', 'playing', 'plays'],
-            answer: 'playing',
-            urdu: 'کیا وہ بارش میں کھیل رہے تھے؟'
-        },
-        {
-            id: 'pac_q3',
-            type: 'mcq',
-            question: 'She _____ cooking dinner.',
-            options: ['was', 'were', 'is', 'been'],
-            answer: 'was',
-            urdu: 'وہ رات کا کھانا پکا رہی تھی۔'
-        }
-    ],
-    simpleFuture: [
-        {
-            id: 'fut_q1',
-            type: 'mcq',
-            question: 'We _____ (visit) Lahore tomorrow.',
-            options: ['visit', 'visits', 'will visit', 'visited'],
-            answer: 'will visit',
-            urdu: 'ہم کل لاہور جائیں گے۔'
-        },
-        {
-            id: 'fut_q2',
-            type: 'fill',
-            question: 'I think it _____ (rain) tonight.',
-            answer: 'will rain',
-            urdu: 'مجھے لگتا ہے کہ آج رات بارش ہوگی۔'
-        },
-        {
-            id: 'fut_q3',
-            type: 'mcq',
-            question: '_____ you help me?',
-            options: ['Will', 'Do', 'Did', 'Are'],
-            answer: 'Will',
-            urdu: 'کیا آپ میری مدد کریں گے؟'
-        },
-        {
-            id: 'fut_q4',
-            type: 'mcq',
-            question: 'He will not _____ late.',
-            options: ['be', 'is', 'was', 'being'],
-            answer: 'be',
-            urdu: 'وہ دیر سے نہیں آئے گا۔'
+            id: 'pp_match_1',
+            type: 'match_pairs',
+            pairs: [
+                { english: 'I have seen', urdu: 'میں دیکھ چکا ہوں' },
+                { english: 'He has gone', urdu: 'وہ جا چکا ہے' },
+                { english: 'They have won', urdu: 'وہ جیت چکے ہیں' }
+            ]
         }
     ],
     presentPerfectContinuous: [
         {
             id: 'ppc_q1',
             type: 'mcq',
-            question: 'I have _____ (study) since morning.',
-            options: ['studied', 'studying', 'been studying', 'was studying'],
-            answer: 'been studying',
-            urdu: 'میں صبح سے پڑھ رہا ہوں۔'
-        },
-        {
-            id: 'ppc_q2',
-            type: 'mcq',
-            question: 'It _____ (rain) for two hours.',
-            options: ['has been raining', 'have been raining', 'is raining', 'was raining'],
-            answer: 'has been raining',
-            urdu: 'دو گھنٹے سے بارش ہو رہی ہے۔'
-        },
-        {
-            id: 'ppc_q3',
-            type: 'fill',
-            question: 'They have been playing _____ 4 o\'clock.',
-            answer: 'since',
-            urdu: 'وہ چار بجے سے کھیل رہے ہیں۔'
-        },
-        {
-            id: 'ppc_q4',
-            type: 'mcq',
-            question: 'She _____ working here for five years.',
+            question: 'It _____ raining since morning.',
             options: ['is', 'has been', 'have been', 'was'],
             answer: 'has been',
-            urdu: 'وہ پانچ سال سے یہاں کام کر رہی ہے۔'
+            urdu: 'صبح سے بارش ہو رہی ہے۔'
+        },
+        {
+            id: 'ppc_q_scramble_1',
+            type: 'scramble',
+            sentence: 'It has been raining since morning',
+            answer: ['It', 'has', 'been', 'raining', 'since', 'morning'],
+            urdu: 'صبح سے بارش ہو رہی ہے۔'
+        }
+    ],
+    simplePast: [
+        {
+            id: 'past_q1',
+            type: 'mcq',
+            question: 'She _____ to the market yesterday.',
+            options: ['go', 'goes', 'went', 'gone'],
+            answer: 'went',
+            urdu: 'وہ کل بازار گئی۔'
+        },
+        {
+            id: 'past_q_scramble_1',
+            type: 'scramble',
+            sentence: 'She cooked delicious food yesterday',
+            answer: ['She', 'cooked', 'delicious', 'food', 'yesterday'],
+            urdu: 'اس نے کل مزیدار کھانا پکایا۔'
+        },
+        {
+            id: 'past_match_1',
+            type: 'match_pairs',
+            pairs: [
+                { english: 'I went', urdu: 'میں گیا' },
+                { english: 'She cooked', urdu: 'اس نے پکایا' },
+                { english: 'They played', urdu: 'وہ کھیلے' }
+            ]
+        }
+    ],
+    pastContinuous: [
+        {
+            id: 'pastc_q1',
+            type: 'mcq',
+            question: 'I _____ sleeping when you called.',
+            options: ['is', 'was', 'were', 'am'],
+            answer: 'was',
+            urdu: 'جب آپ نے فون کیا تو میں سو رہا تھا۔'
+        },
+        {
+            id: 'pastc_match_1',
+            type: 'match_pairs',
+            pairs: [
+                { english: 'I was sleeping', urdu: 'میں سو رہا تھا' },
+                { english: 'She was cooking', urdu: 'وہ پکا رہی تھی' },
+                { english: 'They were running', urdu: 'وہ بھاگ رہے تھے' }
+            ]
         }
     ],
     pastPerfect: [
         {
-            id: 'pap_q1',
+            id: 'pastp_q1',
             type: 'mcq',
-            question: 'I _____ (finish) my work before he came.',
-            options: ['finish', 'finished', 'had finished', 'have finished'],
-            answer: 'had finished',
-            urdu: 'اس کے آنے سے پہلے میں اپنا کام ختم کر چکا تھا۔'
+            question: 'The train _____ left before I arrived.',
+            options: ['has', 'have', 'had', 'was'],
+            answer: 'had',
+            urdu: 'میرے پہنچنے سے پہلے ٹرین جا چکی تھی۔'
         },
         {
-            id: 'pap_q2',
-            type: 'mcq',
-            question: 'She _____ (eat) dinner when I arrived.',
-            options: ['eat', 'eaten', 'had eaten', 'have eaten'],
-            answer: 'had eaten',
-            urdu: 'جب میں پہنچا تو وہ کھانا کھا چکی تھی۔'
+            id: 'pastp_q_scramble_1',
+            type: 'scramble',
+            sentence: 'The train had left before I arrived',
+            answer: ['The', 'train', 'had', 'left', 'before', 'I', 'arrived'],
+            urdu: 'میرے پہنچنے سے پہلے ٹرین جا چکی تھی۔'
         }
     ],
     pastPerfectContinuous: [
         {
-            id: 'papc_q1',
+            id: 'pastpc_q1',
             type: 'mcq',
-            question: 'He _____ (wait) for two hours when I arrived.',
-            options: ['is waiting', 'was waiting', 'had been waiting', 'has been waiting'],
-            answer: 'had been waiting',
-            urdu: 'جب میں پہنچا تو وہ دو گھنٹے سے انتظار کر رہا تھا۔'
-        },
-        {
-            id: 'papc_q2',
-            type: 'mcq',
-            question: 'They _____ playing since morning.',
+            question: 'They _____ playing for two hours.',
             options: ['are', 'were', 'had been', 'have been'],
             answer: 'had been',
-            urdu: 'وہ صبح سے کھیل رہے تھے۔'
+            urdu: 'وہ دو گھنٹے سے کھیل رہے تھے۔'
+        }
+    ],
+    simpleFuture: [
+        {
+            id: 'future_q1',
+            type: 'mcq',
+            question: 'I _____ help you tomorrow.',
+            options: ['will', 'shall', 'am', 'was'],
+            answer: 'will',
+            urdu: 'میں کل آپ کی مدد کروں گا۔'
+        },
+        {
+            id: 'future_q_scramble_1',
+            type: 'scramble',
+            sentence: 'I will go to school tomorrow',
+            answer: ['I', 'will', 'go', 'to', 'school', 'tomorrow'],
+            urdu: 'میں کل سکول جاؤں گا۔'
         }
     ],
     futureContinuous: [
         {
-            id: 'futc_q1',
+            id: 'futurec_q1',
             type: 'mcq',
-            question: 'I _____ (wait) for you tomorrow.',
-            options: ['will wait', 'will be waiting', 'waited', 'waiting'],
-            answer: 'will be waiting',
-            urdu: 'میں کل آپ کا انتظار کر رہا ہوں گا۔'
-        },
-        {
-            id: 'futc_q2',
-            type: 'mcq',
-            question: 'They _____ playing cricket at this time tomorrow.',
-            options: ['will be', 'shall be', 'would be', 'will have been'],
+            question: 'I _____ waiting for you.',
+            options: ['will', 'will be', 'shall', 'am'],
             answer: 'will be',
-            urdu: 'وہ کل اس وقت کرکٹ کھیل رہے ہوں گے۔'
+            urdu: 'میں آپ کا انتظار کر رہا ہوں گا۔'
         }
     ],
     futurePerfect: [
         {
-            id: 'futp_q1',
+            id: 'futurep_q1',
             type: 'mcq',
-            question: 'I _____ (finish) my work by evening.',
-            options: ['will finish', 'will have finished', 'have finished', 'had finished'],
-            answer: 'will have finished',
-            urdu: 'میں شام تک اپنا کام ختم کر چکا ہوں گا۔'
-        },
-        {
-            id: 'futp_q2',
-            type: 'mcq',
-            question: 'She will have _____ to the office.',
-            options: ['go', 'went', 'gone', 'going'],
-            answer: 'gone',
-            urdu: 'وہ دفتر جا چکی ہو گی۔'
+            question: 'She _____ finished her work by then.',
+            options: ['will', 'will have', 'shall', 'had'],
+            answer: 'will have',
+            urdu: 'وہ تب تک اپنا کام ختم کر چکی ہو گی۔'
         }
     ],
     futurePerfectContinuous: [
         {
-            id: 'futpc_q1',
+            id: 'futurepc_q1',
             type: 'mcq',
-            question: 'By next year, I _____ (live) here for 10 years.',
-            options: ['will live', 'will be living', 'will have been living', 'have lived'],
-            answer: 'will have been living',
-            urdu: 'اگلے سال تک، میں یہاں دس سال سے رہ رہا ہوں گا۔'
-        },
-        {
-            id: 'futpc_q2',
-            type: 'mcq',
-            question: 'They will have been _____ since morning.',
-            options: ['play', 'playing', 'played', 'plays'],
-            answer: 'playing',
-            urdu: 'وہ صبح سے کھیل رہے ہوں گے۔'
+            question: 'I _____ living here for ten years.',
+            options: ['will be', 'will have been', 'am', 'was'],
+            answer: 'will have been',
+            urdu: 'میں یہاں دس سال سے رہ رہا ہوں گا۔'
         }
     ]
 };

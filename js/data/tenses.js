@@ -4,6 +4,66 @@
  */
 
 export const tenses = {
+    // PAST TENSES
+    simplePast: {
+        id: 'simplePast',
+        name: 'Simple Past Tense',
+        urduName: 'فعل ماضی مطلق',
+        formula: 'Subject + 2nd Form of Verb + Object',
+        theory: {
+            english: 'The simple past tense is used for actions that started and finished in the past.',
+            urdu: 'فعل ماضی مطلق ان کاموں کے لیے استعمال ہوتا ہے جو گزرے ہوئے وقت میں مکمل ہو گئے ہوں۔'
+        },
+        examples: [
+            { english: 'I went to school.', urdu: 'میں سکول گیا۔' },
+            { english: 'She cooked food.', urdu: 'اس نے کھانا پکایا۔' },
+            { english: 'They played cricket.', urdu: 'وہ کرکٹ کھیلے۔' }
+        ]
+    },
+    pastContinuous: {
+        id: 'pastContinuous',
+        name: 'Past Continuous Tense',
+        urduName: 'فعل ماضی جاری',
+        formula: 'S + was/were + V1-ing',
+        theory: {
+            english: 'Used for actions that were ongoing at a specific time in the past.',
+            urdu: 'یہ ٹینس ماضی میں کسی خاص وقت پر جاری رہنے والے کاموں کے لیے استعمال ہوتا ہے۔'
+        },
+        examples: [
+            { english: 'I was sleeping.', urdu: 'میں سو رہا تھا۔' },
+            { english: 'They were running.', urdu: 'وہ بھاگ رہے تھے۔' }
+        ]
+    },
+    pastPerfect: {
+        id: 'pastPerfect',
+        name: 'Past Perfect Tense',
+        urduName: 'فعل ماضی مکمل',
+        formula: 'Subject + had + 3rd Form of Verb + Object',
+        theory: {
+            english: 'Used for an action that was completed before another action in the past.',
+            urdu: 'یہ ٹینس ایسے کاموں کے لیے استعمال ہوتا ہے جو ماضی میں ایک دوسرے کام سے پہلے مکمل ہو چکے ہوں۔'
+        },
+        examples: [
+            { english: 'I had finished my work before he came.', urdu: 'اس کے آنے سے پہلے میں اپنا کام ختم کر چکا تھا۔' },
+            { english: 'She had already eaten dinner.', urdu: 'وہ پہلے ہی کھانا کھا چکی تھی۔' }
+        ]
+    },
+    pastPerfectContinuous: {
+        id: 'pastPerfectContinuous',
+        name: 'Past Perfect Continuous Tense',
+        urduName: 'فعل ماضی جاری مکمل',
+        formula: 'S + had + been + Verb(ing) + (since/for) + Object',
+        theory: {
+            english: 'Used for an action that started in the past and continued up until another time in the past.',
+            urdu: 'یہ ٹینس ایسے کاموں کے لیے استعمال ہوتا ہے جو ماضی میں شروع ہوئے اور ماضی ہی میں کسی خاص وقت تک جاری رہے۔'
+        },
+        examples: [
+            { english: 'I had been waiting for two hours when he arrived.', urdu: 'جب وہ پہنچا تو میں دو گھنٹے سے انتظار کر رہا تھا۔' },
+            { english: 'They had been playing since morning.', urdu: 'وہ صبح سے کھیل رہے تھے۔' }
+        ]
+    },
+
+    // PRESENT TENSES
     simplePresent: {
         id: 'simplePresent',
         name: 'Simple Present Tense',
@@ -54,35 +114,23 @@ export const tenses = {
             { english: 'We have won.', urdu: 'ہم جیت چکے ہیں۔' }
         ]
     },
-    simplePast: {
-        id: 'simplePast',
-        name: 'Simple Past Tense',
-        urduName: 'فعل ماضی مطلق',
-        formula: 'Subject + 2nd Form of Verb + Object',
+    presentPerfectContinuous: {
+        id: 'presentPerfectContinuous',
+        name: 'Present Perfect Continuous Tense',
+        urduName: 'فعل حال جاری مکمل',
+        formula: 'S + has/have + been + Verb(ing) + (since/for) + Object',
         theory: {
-            english: 'The simple past tense is used for actions that started and finished in the past.',
-            urdu: 'فعل ماضی مطلق ان کاموں کے لیے استعمال ہوتا ہے جو گزرے ہوئے وقت میں مکمل ہو گئے ہوں۔'
+            english: 'Used for an action that started in the past and is still continuing.',
+            urdu: 'یہ ٹینس ایسے کاموں کے لیے استعمال ہوتا ہے جو ماضی میں شروع ہوئے ہوں اور اب bhi جاری ہوں۔'
         },
         examples: [
-            { english: 'I went to school.', urdu: 'میں سکول گیا۔' },
-            { english: 'She cooked food.', urdu: 'اس نے کھانا پکایا۔' },
-            { english: 'They played cricket.', urdu: 'وہ کرکٹ کھیلے۔' }
+            { english: 'I have been studying since morning.', urdu: 'میں صبح سے پڑھ رہا ہوں۔' },
+            { english: 'It has been raining for two hours.', urdu: 'دو گھنٹے سے بارش ہو رہی ہے۔' },
+            { english: 'They have been playing since 4 o\'clock.', urdu: 'وہ چار بجے سے کھیل رہے ہیں۔' }
         ]
     },
-    pastContinuous: {
-        id: 'pastContinuous',
-        name: 'Past Continuous Tense',
-        urduName: 'فعل ماضی جاری',
-        formula: 'S + was/were + V1-ing',
-        theory: {
-            english: 'Used for actions that were ongoing at a specific time in the past.',
-            urdu: 'یہ ٹینس ماضی میں کسی خاص وقت پر جاری رہنے والے کاموں کے لیے استعمال ہوتا ہے۔'
-        },
-        examples: [
-            { english: 'I was sleeping.', urdu: 'میں سو رہا تھا۔' },
-            { english: 'They were running.', urdu: 'وہ بھاگ رہے تھے۔' }
-        ]
-    },
+
+    // FUTURE TENSES
     simpleFuture: {
         id: 'simpleFuture',
         name: 'Simple Future Tense',
@@ -95,49 +143,6 @@ export const tenses = {
         examples: [
             { english: 'I will go to school.', urdu: 'میں سکول جاؤں گا۔' },
             { english: 'They will come.', urdu: 'وہ آئیں گے۔' }
-        ]
-    },
-    presentPerfectContinuous: {
-        id: 'presentPerfectContinuous',
-        name: 'Present Perfect Continuous Tense',
-        urduName: 'فعل حال جاری مکمل',
-        formula: 'S + has/have + been + Verb(ing) + (since/for) + Object',
-        theory: {
-            english: 'Used for an action that started in the past and is still continuing.',
-            urdu: 'یہ ٹینس ایسے کاموں کے لیے استعمال ہوتا ہے جو ماضی میں شروع ہوئے ہوں اور اب بھی جاری ہوں۔'
-        },
-        examples: [
-            { english: 'I have been studying since morning.', urdu: 'میں صبح سے پڑھ رہا ہوں۔' },
-            { english: 'It has been raining for two hours.', urdu: 'دو گھنٹے سے بارش ہو رہی ہے۔' },
-            { english: 'They have been playing since 4 o\'clock.', urdu: 'وہ چار بجے سے کھیل رہے ہیں۔' }
-        ]
-    },
-    pastPerfect: {
-        id: 'pastPerfect',
-        name: 'Past Perfect Tense',
-        urduName: 'فعل ماضی مکمل',
-        formula: 'Subject + had + 3rd Form of Verb + Object',
-        theory: {
-            english: 'Used for an action that was completed before another action in the past.',
-            urdu: 'یہ ٹینس ایسے کاموں کے لیے استعمال ہوتا ہے جو ماضی میں ایک دوسرے کام سے پہلے مکمل ہو چکے ہوں۔'
-        },
-        examples: [
-            { english: 'I had finished my work before he came.', urdu: 'اس کے آنے سے پہلے میں اپنا کام ختم کر چکا تھا۔' },
-            { english: 'She had already eaten dinner.', urdu: 'وہ پہلے ہی کھانا کھا چکی تھی۔' }
-        ]
-    },
-    pastPerfectContinuous: {
-        id: 'pastPerfectContinuous',
-        name: 'Past Perfect Continuous Tense',
-        urduName: 'فعل ماضی جاری مکمل',
-        formula: 'S + had + been + Verb(ing) + (since/for) + Object',
-        theory: {
-            english: 'Used for an action that started in the past and continued up until another time in the past.',
-            urdu: 'یہ ٹینس ایسے کاموں کے لیے استعمال ہوتا ہے جو ماضی میں شروع ہوئے اور ماضی ہی میں کسی خاص وقت تک جاری رہے۔'
-        },
-        examples: [
-            { english: 'I had been waiting for two hours when he arrived.', urdu: 'جب وہ پہنچا تو میں دو گھنٹے سے انتظار کر رہا تھا۔' },
-            { english: 'They had been playing since morning.', urdu: 'وہ صبح سے کھیل رہے تھے۔' }
         ]
     },
     futureContinuous: {
@@ -164,7 +169,7 @@ export const tenses = {
             urdu: 'یہ ٹینس ایسے کاموں کے لیے استعمال ہوتا ہے جو مستقبل میں کسی خاص وقت تک مکمل ہو چکے ہوں گے۔'
         },
         examples: [
-            { english: 'I will have finished my work by 5 PM.', urdu: 'میں شام پانچ بجے تک اپنا کام ختم کر چکا ہوں گا۔' },
+            { english: 'I will have finished my work by 5 PM.', urdu: 'میں شام پانچ بجے tak اپنا کام ختم کر چکا ہوں گا۔' },
             { english: 'She will have gone to school.', urdu: 'وہ سکول جا چکی ہو گی۔' }
         ]
     },
@@ -178,7 +183,7 @@ export const tenses = {
             urdu: 'یہ ٹینس ایسے کاموں کے لیے استعمال ہوتا ہے جو مستقبل میں کسی خاص وقت تک جاری رہے ہوں گے۔'
         },
         examples: [
-            { english: 'I will have been living here for ten years by next month.', urdu: 'اگلے مہینے تک میں یہاں دس سال سے رہ رہا ہوں گا۔' },
+            { english: 'I will have been living here for ten years by next month.', urdu: 'اگلے مہینے tak میں یہاں دس سال سے رہ رہا ہوں گا۔' },
             { english: 'They will have been playing since morning.', urdu: 'وہ صبح سے کھیل رہے ہوں گے۔' }
         ]
     }

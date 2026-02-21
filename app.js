@@ -19,7 +19,14 @@ class App {
             currentIndex: 0,
             score: 0,
             lives: 5,
-            xpEarned: 0
+            xpEarned: 0,
+            scrambledWords: [],
+            userWords: [],
+            matchingData: {
+                selectedLeft: null,
+                selectedRight: null,
+                matchedPairs: []
+            }
         };
         this.init();
     }
@@ -198,15 +205,15 @@ class App {
                             <button class="text-primary text-sm font-bold" onclick="app.navigate('learn')">See all</button>
                         </div>
                         <div class="grid grid-cols-2 gap-4">
-                            <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center text-center cursor-pointer active:scale-95 transition" onclick="app.navigate('tense-detail', {id: 'simplePresent'})">
-                                <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center text-blue-600 text-xl font-bold mb-3">P</div>
-                                <p class="font-bold text-sm">Present</p>
-                                <p class="text-[10px] text-gray-500">${store.data.progress.tenses.simplePresent}% Complete</p>
-                            </div>
                             <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center text-center cursor-pointer active:scale-95 transition" onclick="app.navigate('tense-detail', {id: 'simplePast'})">
                                 <div class="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center text-orange-600 text-xl font-bold mb-3">P</div>
                                 <p class="font-bold text-sm">Past</p>
                                 <p class="text-[10px] text-gray-500">${store.data.progress.tenses.simplePast}% Complete</p>
+                            </div>
+                            <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center text-center cursor-pointer active:scale-95 transition" onclick="app.navigate('tense-detail', {id: 'simplePresent'})">
+                                <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center text-blue-600 text-xl font-bold mb-3">P</div>
+                                <p class="font-bold text-sm">Present</p>
+                                <p class="text-[10px] text-gray-500">${store.data.progress.tenses.simplePresent}% Complete</p>
                             </div>
                             <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center text-center cursor-pointer active:scale-95 transition" onclick="app.navigate('tense-detail', {id: 'simpleFuture'})">
                                 <div class="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center text-green-600 text-xl font-bold mb-3">F</div>
@@ -270,7 +277,7 @@ class App {
             <div class="flex flex-col min-h-screen bg-soft-gray animate-fade-in pb-24">
                 <div class="bg-white p-4 flex items-center justify-between shadow-sm sticky top-0 z-10">
                     <div class="flex items-center space-x-4">
-                        <button onclick="app.navigate('learn')" class="p-2 -ml-2">←</button>
+                        <button onclick="app.navigate('learn')" class="p-2 -ml-2 text-xl">←</button>
                         <div>
                             <h2 class="text-lg font-bold leading-none">${tense.name}</h2>
                             <p class="text-xs text-gray-500">${tense.urduName}</p>
@@ -280,13 +287,13 @@ class App {
 
                 <div class="p-4 space-y-6 overflow-y-auto">
                     <!-- Formula Card -->
-                    <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+                    <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 animate-slide-up">
                         <h3 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-2">Formula</h3>
                         <p class="text-2xl font-bold text-primary">${tense.formula}</p>
                     </div>
 
                     <!-- Tabs -->
-                    <div class="flex bg-gray-200 p-1 rounded-2xl">
+                    <div class="flex bg-gray-200 p-1 rounded-2xl animate-fade-in">
                         <button id="tab-theory" class="flex-1 py-2 rounded-xl text-sm font-bold bg-white shadow-sm transition">Theory</button>
                         <button id="tab-examples" class="flex-1 py-2 rounded-xl text-sm font-bold text-gray-500 transition">Examples</button>
                     </div>
@@ -306,7 +313,7 @@ class App {
                 </div>
 
                 <div class="fixed bottom-24 left-4 right-4 animate-slide-up">
-                    <button onclick="app.navigate('game', {id: '${tense.id}'})" class="w-full bg-secondary text-white font-bold py-4 rounded-3xl shadow-lg active:scale-95 transition">
+                    <button onclick="app.navigate('game', {id: '${id}'})" class="w-full bg-secondary text-white font-bold py-4 rounded-3xl shadow-lg active:scale-95 transition">
                         Practice Game / گیم کھیلیں
                     </button>
                 </div>
@@ -384,7 +391,9 @@ class App {
             currentIndex: 0,
             score: 0,
             lives: 5,
-            xpEarned: 0
+            xpEarned: 0,
+            scrambledWords: [],
+            userWords: []
         };
 
         this.renderQuestion();
@@ -446,7 +455,9 @@ class App {
             currentIndex: 0,
             score: 0,
             lives: Infinity, // No lives limit in test mode
-            xpEarned: 0
+            xpEarned: 0,
+            scrambledWords: [],
+            userWords: []
         };
 
         this.renderQuestion();
@@ -492,12 +503,16 @@ class App {
                                 ${opt}
                             </button>
                         `).join('') :
-                `
-                        <div class="flex flex-col space-y-4">
-                            <input type="text" id="fill-answer" class="w-full p-4 rounded-2xl border-2 border-primary text-center text-xl font-bold focus:ring-4 focus:ring-primary/20 outline-none" placeholder="Type answer here..." autofocus>
+                q.type === 'scramble' ?
+                    this.renderScramble(q) :
+                    q.type === 'match_pairs' ?
+                        this.renderMatchPairs(q) :
+                        `
+                        <div class="space-y-4">
+                            <input type="text" id="fill-answer" class="w-full p-4 rounded-2xl border-2 border-gray-100 focus:border-primary outline-none text-lg text-center" placeholder="Type your answer...">
                             <button onclick="app.checkAnswer(document.getElementById('fill-answer').value)" class="w-full bg-primary text-white font-bold py-4 rounded-2xl shadow-lg">Check Answer</button>
                         </div>
-                        `
+                    `
             }
                 </div>
             </div>
@@ -612,7 +627,7 @@ class App {
                 </div>
 
                 <!-- Stats Cards -->
-                <div class="px-4 -mt-16 space-y-4 overflow-y-auto">
+                <div class="px-4 -mt-16 space-y-4 overflow-y-auto relative z-10">
                     <div class="bg-white rounded-3xl p-6 shadow-lg grid grid-cols-2 gap-4">
                         <div class="text-center p-3 rounded-2xl bg-primary/5">
                             <p class="text-xs text-gray-500 uppercase font-bold tracking-widest mb-1">Total XP</p>
@@ -709,6 +724,140 @@ class App {
                 `).join('')}
             </div>
         `;
+    }
+
+    renderScramble(q) {
+        if (!this.gameState.scrambledWords || this.gameState.scrambledWords.length === 0) {
+            this.gameState.scrambledWords = [...q.answer].sort(() => Math.random() - 0.5);
+            this.gameState.userWords = [];
+        }
+
+        return `
+            <div class="space-y-8">
+                <!-- Drop Zone -->
+                <div class="min-h-[100px] p-4 bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200 flex flex-wrap gap-2 items-center justify-center">
+                    ${this.gameState.userWords.map((word, idx) => `
+                        <span onclick="app.handleScrambleClick('${word}', ${idx}, true)" class="px-4 py-2 bg-primary text-white rounded-xl font-bold cursor-pointer animate-bounce-in shadow-md">
+                            ${word}
+                        </span>
+                    `).join('')}
+                    ${this.gameState.userWords.length === 0 ? '<span class="text-gray-400 text-sm">Tap words to build sentence</span>' : ''}
+                </div>
+
+                <!-- Word Bank -->
+                <div class="flex flex-wrap gap-3 justify-center">
+                    ${this.gameState.scrambledWords.map((word, idx) => `
+                        <button onclick="app.handleScrambleClick('${word}', ${idx}, false)" 
+                                class="px-6 py-3 bg-white border-2 border-gray-100 rounded-2xl font-bold text-gray-700 active:scale-95 transition hover:border-primary shadow-sm">
+                            ${word}
+                        </button>
+                    `).join('')}
+                </div>
+
+                ${this.gameState.userWords.length === q.answer.length ? `
+                    <button onclick="app.checkScrambleAnswer()" class="w-full bg-primary text-white font-bold py-4 rounded-2xl shadow-lg active:scale-95 transition animate-slide-up">
+                        Check Sentence
+                    </button>
+                ` : ''}
+            </div>
+        `;
+    }
+
+    handleScrambleClick(word, index, isFromUser) {
+        if (isFromUser) {
+            this.gameState.userWords.splice(index, 1);
+            this.gameState.scrambledWords.push(word);
+        } else {
+            this.gameState.scrambledWords.splice(index, 1);
+            this.gameState.userWords.push(word);
+        }
+        this.renderQuestion();
+    }
+
+    checkScrambleAnswer() {
+        const q = this.gameState.questions[this.gameState.currentIndex];
+        const isCorrect = JSON.stringify(this.gameState.userWords) === JSON.stringify(q.answer);
+
+        // Reset scramble state for next time
+        this.gameState.scrambledWords = [];
+        this.gameState.userWords = [];
+
+        this.checkAnswer(isCorrect ? q.answer.join(' ') : 'wrong', isCorrect);
+    }
+
+    renderMatchPairs(q) {
+        if (!this.gameState.matchingData.leftItems) {
+            const leftItems = q.pairs.map(p => ({ id: Math.random(), text: p.english, matchId: p.english }));
+            const rightItems = q.pairs.map(p => ({ id: Math.random(), text: p.urdu, matchId: p.english }));
+            this.gameState.matchingData.leftItems = leftItems.sort(() => Math.random() - 0.5);
+            this.gameState.matchingData.rightItems = rightItems.sort(() => Math.random() - 0.5);
+        }
+
+        const { selectedLeft, selectedRight, matchedPairs } = this.gameState.matchingData;
+
+        return `
+            <div class="space-y-6">
+                <p class="text-center text-gray-500 text-sm">Match English to Urdu</p>
+                <div class="grid grid-cols-2 gap-4">
+                    <!-- Left Column (English) -->
+                    <div class="space-y-3">
+                        ${this.gameState.matchingData.leftItems.map(item => {
+            const isMatched = matchedPairs.includes(item.matchId);
+            return `
+                                <button onclick="${isMatched ? '' : `app.handleMatchClick('${item.matchId}', 'left')`}"
+                                        class="w-full p-4 rounded-xl border-2 text-sm transition-all
+                                        ${isMatched ? 'bg-success/20 border-success text-success opacity-50' :
+                    selectedLeft === item.matchId ? 'border-primary bg-primary/5 text-primary scale-95' : 'border-gray-100 text-gray-700 bg-white shadow-sm'}">
+                                    ${item.text}
+                                </button>
+                            `;
+        }).join('')}
+                    </div>
+
+                    <!-- Right Column (Urdu) -->
+                    <div class="space-y-3">
+                        ${this.gameState.matchingData.rightItems.map(item => {
+            const isMatched = matchedPairs.includes(item.matchId);
+            return `
+                                <button onclick="${isMatched ? '' : `app.handleMatchClick('${item.matchId}', 'right')`}"
+                                        class="w-full p-4 rounded-xl border-2 text-right text-sm font-urdu transition-all
+                                        ${isMatched ? 'bg-success/20 border-success text-success opacity-50' :
+                    selectedRight === item.matchId ? 'border-primary bg-primary/5 text-primary scale-95' : 'border-gray-100 text-gray-800 bg-white shadow-sm'}">
+                                    ${item.text}
+                                </button>
+                            `;
+        }).join('')}
+                    </div>
+                </div>
+
+                ${matchedPairs.length === q.pairs.length ? `
+                    <button onclick="app.checkAnswer('all matched', true)" class="w-full bg-primary text-white font-bold py-4 rounded-2xl shadow-lg active:scale-95 transition animate-bounce-in">
+                        Continue
+                    </button>
+                ` : ''}
+            </div>
+        `;
+    }
+
+    handleMatchClick(matchId, side) {
+        if (side === 'left') {
+            this.gameState.matchingData.selectedLeft = matchId;
+        } else {
+            this.gameState.matchingData.selectedRight = matchId;
+        }
+
+        if (this.gameState.matchingData.selectedLeft && this.gameState.matchingData.selectedRight) {
+            if (this.gameState.matchingData.selectedLeft === this.gameState.matchingData.selectedRight) {
+                this.gameState.matchingData.matchedPairs.push(this.gameState.matchingData.selectedLeft);
+                // Visual feedback could be added here
+            } else {
+                // Shake effect or reset
+            }
+            this.gameState.matchingData.selectedLeft = null;
+            this.gameState.matchingData.selectedRight = null;
+        }
+
+        this.renderQuestion();
     }
 }
 
