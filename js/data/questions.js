@@ -216,5 +216,128 @@ export const questions = {
             answer: 'be',
             urdu: 'وہ دیر سے نہیں آئے گا۔'
         }
+    ],
+    presentPerfectContinuous: [
+        {
+            id: 'ppc_q1',
+            type: 'mcq',
+            question: 'I have _____ (study) since morning.',
+            options: ['studied', 'studying', 'been studying', 'was studying'],
+            answer: 'been studying',
+            urdu: 'میں صبح سے پڑھ رہا ہوں۔'
+        },
+        {
+            id: 'ppc_q2',
+            type: 'mcq',
+            question: 'It _____ (rain) for two hours.',
+            options: ['has been raining', 'have been raining', 'is raining', 'was raining'],
+            answer: 'has been raining',
+            urdu: 'دو گھنٹے سے بارش ہو رہی ہے۔'
+        },
+        {
+            id: 'ppc_q3',
+            type: 'fill',
+            question: 'They have been playing _____ 4 o\'clock.',
+            answer: 'since',
+            urdu: 'وہ چار بجے سے کھیل رہے ہیں۔'
+        },
+        {
+            id: 'ppc_q4',
+            type: 'mcq',
+            question: 'She _____ working here for five years.',
+            options: ['is', 'has been', 'have been', 'was'],
+            answer: 'has been',
+            urdu: 'وہ پانچ سال سے یہاں کام کر رہی ہے۔'
+        }
+    ],
+    pastPerfect: [
+        {
+            id: 'pap_q1',
+            type: 'mcq',
+            question: 'I _____ (finish) my work before he came.',
+            options: ['finish', 'finished', 'had finished', 'have finished'],
+            answer: 'had finished',
+            urdu: 'اس کے آنے سے پہلے میں اپنا کام ختم کر چکا تھا۔'
+        },
+        {
+            id: 'pap_q2',
+            type: 'mcq',
+            question: 'She _____ (eat) dinner when I arrived.',
+            options: ['eat', 'eaten', 'had eaten', 'have eaten'],
+            answer: 'had eaten',
+            urdu: 'جب میں پہنچا تو وہ کھانا کھا چکی تھی۔'
+        }
+    ],
+    pastPerfectContinuous: [
+        {
+            id: 'papc_q1',
+            type: 'mcq',
+            question: 'He _____ (wait) for two hours when I arrived.',
+            options: ['is waiting', 'was waiting', 'had been waiting', 'has been waiting'],
+            answer: 'had been waiting',
+            urdu: 'جب میں پہنچا تو وہ دو گھنٹے سے انتظار کر رہا تھا۔'
+        },
+        {
+            id: 'papc_q2',
+            type: 'mcq',
+            question: 'They _____ playing since morning.',
+            options: ['are', 'were', 'had been', 'have been'],
+            answer: 'had been',
+            urdu: 'وہ صبح سے کھیل رہے تھے۔'
+        }
+    ],
+    futureContinuous: [
+        {
+            id: 'futc_q1',
+            type: 'mcq',
+            question: 'I _____ (wait) for you tomorrow.',
+            options: ['will wait', 'will be waiting', 'waited', 'waiting'],
+            answer: 'will be waiting',
+            urdu: 'میں کل آپ کا انتظار کر رہا ہوں گا۔'
+        },
+        {
+            id: 'futc_q2',
+            type: 'mcq',
+            question: 'They _____ playing cricket at this time tomorrow.',
+            options: ['will be', 'shall be', 'would be', 'will have been'],
+            answer: 'will be',
+            urdu: 'وہ کل اس وقت کرکٹ کھیل رہے ہوں گے۔'
+        }
+    ],
+    futurePerfect: [
+        {
+            id: 'futp_q1',
+            type: 'mcq',
+            question: 'I _____ (finish) my work by evening.',
+            options: ['will finish', 'will have finished', 'have finished', 'had finished'],
+            answer: 'will have finished',
+            urdu: 'میں شام تک اپنا کام ختم کر چکا ہوں گا۔'
+        },
+        {
+            id: 'futp_q2',
+            type: 'mcq',
+            question: 'She will have _____ to the office.',
+            options: ['go', 'went', 'gone', 'going'],
+            answer: 'gone',
+            urdu: 'وہ دفتر جا چکی ہو گی۔'
+        }
+    ],
+    futurePerfectContinuous: [
+        {
+            id: 'futpc_q1',
+            type: 'mcq',
+            question: 'By next year, I _____ (live) here for 10 years.',
+            options: ['will live', 'will be living', 'will have been living', 'have lived'],
+            answer: 'will have been living',
+            urdu: 'اگلے سال تک، میں یہاں دس سال سے رہ رہا ہوں گا۔'
+        },
+        {
+            id: 'futpc_q2',
+            type: 'mcq',
+            question: 'They will have been _____ since morning.',
+            options: ['play', 'playing', 'played', 'plays'],
+            answer: 'playing',
+            urdu: 'وہ صبح سے کھیل رہے ہوں گے۔'
+        }
     ]
 };

@@ -96,5 +96,90 @@ export const tenses = {
             { english: 'I will go to school.', urdu: 'میں سکول جاؤں گا۔' },
             { english: 'They will come.', urdu: 'وہ آئیں گے۔' }
         ]
+    },
+    presentPerfectContinuous: {
+        id: 'presentPerfectContinuous',
+        name: 'Present Perfect Continuous Tense',
+        urduName: 'فعل حال جاری مکمل',
+        formula: 'S + has/have + been + Verb(ing) + (since/for) + Object',
+        theory: {
+            english: 'Used for an action that started in the past and is still continuing.',
+            urdu: 'یہ ٹینس ایسے کاموں کے لیے استعمال ہوتا ہے جو ماضی میں شروع ہوئے ہوں اور اب بھی جاری ہوں۔'
+        },
+        examples: [
+            { english: 'I have been studying since morning.', urdu: 'میں صبح سے پڑھ رہا ہوں۔' },
+            { english: 'It has been raining for two hours.', urdu: 'دو گھنٹے سے بارش ہو رہی ہے۔' },
+            { english: 'They have been playing since 4 o\'clock.', urdu: 'وہ چار بجے سے کھیل رہے ہیں۔' }
+        ]
+    },
+    pastPerfect: {
+        id: 'pastPerfect',
+        name: 'Past Perfect Tense',
+        urduName: 'فعل ماضی مکمل',
+        formula: 'Subject + had + 3rd Form of Verb + Object',
+        theory: {
+            english: 'Used for an action that was completed before another action in the past.',
+            urdu: 'یہ ٹینس ایسے کاموں کے لیے استعمال ہوتا ہے جو ماضی میں ایک دوسرے کام سے پہلے مکمل ہو چکے ہوں۔'
+        },
+        examples: [
+            { english: 'I had finished my work before he came.', urdu: 'اس کے آنے سے پہلے میں اپنا کام ختم کر چکا تھا۔' },
+            { english: 'She had already eaten dinner.', urdu: 'وہ پہلے ہی کھانا کھا چکی تھی۔' }
+        ]
+    },
+    pastPerfectContinuous: {
+        id: 'pastPerfectContinuous',
+        name: 'Past Perfect Continuous Tense',
+        urduName: 'فعل ماضی جاری مکمل',
+        formula: 'S + had + been + Verb(ing) + (since/for) + Object',
+        theory: {
+            english: 'Used for an action that started in the past and continued up until another time in the past.',
+            urdu: 'یہ ٹینس ایسے کاموں کے لیے استعمال ہوتا ہے جو ماضی میں شروع ہوئے اور ماضی ہی میں کسی خاص وقت تک جاری رہے۔'
+        },
+        examples: [
+            { english: 'I had been waiting for two hours when he arrived.', urdu: 'جب وہ پہنچا تو میں دو گھنٹے سے انتظار کر رہا تھا۔' },
+            { english: 'They had been playing since morning.', urdu: 'وہ صبح سے کھیل رہے تھے۔' }
+        ]
+    },
+    futureContinuous: {
+        id: 'futureContinuous',
+        name: 'Future Continuous Tense',
+        urduName: 'فعل مستقبل جاری',
+        formula: 'S + will be + Verb(ing) + Object',
+        theory: {
+            english: 'Used for an action that will be ongoing at a certain time in the future.',
+            urdu: 'یہ ٹینس ایسے کاموں کے لیے استعمال ہوتا ہے جو مستقبل میں کسی خاص وقت پر جاری ہوں گے۔'
+        },
+        examples: [
+            { english: 'I will be waiting for you.', urdu: 'میں آپ کا انتظار کر رہا ہوں گا۔' },
+            { english: 'They will be playing cricket tomorrow.', urdu: 'وہ کل کرکٹ کھیل رہے ہوں گے۔' }
+        ]
+    },
+    futurePerfect: {
+        id: 'futurePerfect',
+        name: 'Future Perfect Tense',
+        urduName: 'فعل مستقبل مکمل',
+        formula: 'S + will have + V3 + Object',
+        theory: {
+            english: 'Used for an action that will be completed by a certain time in the future.',
+            urdu: 'یہ ٹینس ایسے کاموں کے لیے استعمال ہوتا ہے جو مستقبل میں کسی خاص وقت تک مکمل ہو چکے ہوں گے۔'
+        },
+        examples: [
+            { english: 'I will have finished my work by 5 PM.', urdu: 'میں شام پانچ بجے تک اپنا کام ختم کر چکا ہوں گا۔' },
+            { english: 'She will have gone to school.', urdu: 'وہ سکول جا چکی ہو گی۔' }
+        ]
+    },
+    futurePerfectContinuous: {
+        id: 'futurePerfectContinuous',
+        name: 'Future Perfect Continuous Tense',
+        urduName: 'فعل مستقبل جاری مکمل',
+        formula: 'S + will have been + Verb(ing) + (since/for) + Object',
+        theory: {
+            english: 'Used for an action that will continue up until a point in the future.',
+            urdu: 'یہ ٹینس ایسے کاموں کے لیے استعمال ہوتا ہے جو مستقبل میں کسی خاص وقت تک جاری رہے ہوں گے۔'
+        },
+        examples: [
+            { english: 'I will have been living here for ten years by next month.', urdu: 'اگلے مہینے تک میں یہاں دس سال سے رہ رہا ہوں گا۔' },
+            { english: 'They will have been playing since morning.', urdu: 'وہ صبح سے کھیل رہے ہوں گے۔' }
+        ]
     }
 };

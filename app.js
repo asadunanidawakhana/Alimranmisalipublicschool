@@ -146,7 +146,7 @@ class App {
                 <!-- Header -->
                 <div class="bg-white p-4 flex items-center justify-between shadow-sm sticky top-0 z-10">
                     <div class="flex items-center space-x-3">
-                        <div class="w-10 h-10 bg-accent rounded-full flex items-center justify-center text-white font-bold">
+                        <div class="w-10 h-10 bg-accent rounded-full flex items-center justify-center text-white font-bold animate-float shadow-inner">
                             ${store.data.user.name[0].toUpperCase()}
                         </div>
                         <div>
@@ -207,6 +207,16 @@ class App {
                                 <div class="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center text-orange-600 text-xl font-bold mb-3">P</div>
                                 <p class="font-bold text-sm">Past</p>
                                 <p class="text-[10px] text-gray-500">${store.data.progress.tenses.simplePast}% Complete</p>
+                            </div>
+                            <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center text-center cursor-pointer active:scale-95 transition" onclick="app.navigate('tense-detail', {id: 'simpleFuture'})">
+                                <div class="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center text-green-600 text-xl font-bold mb-3">F</div>
+                                <p class="font-bold text-sm">Future</p>
+                                <p class="text-[10px] text-gray-500">${store.data.progress.tenses.simpleFuture}% Complete</p>
+                            </div>
+                            <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center text-center cursor-pointer active:scale-95 transition" onclick="app.navigate('learn')">
+                                <div class="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center text-purple-600 text-xl font-bold mb-3">...</div>
+                                <p class="font-bold text-sm">More</p>
+                                <p class="text-[10px] text-gray-500">View All</p>
                             </div>
                         </div>
                     </div>
@@ -475,8 +485,10 @@ class App {
                 <!-- Answer Options -->
                 <div class="p-6 space-y-3 pb-12">
                     ${q.type === 'mcq' ?
-                q.options.map(opt => `
-                            <button onclick="app.checkAnswer('${opt.replace(/'/g, "\\'")}')" class="w-full p-4 rounded-2xl border-2 border-gray-100 hover:border-primary hover:bg-primary/5 text-lg font-medium transition active:scale-95">
+                q.options.map((opt, idx) => `
+                            <button onclick="app.checkAnswer('${opt.replace(/'/g, "\\'")}')" 
+                                    class="w-full p-4 rounded-2xl border-2 border-gray-100 hover:border-primary hover:bg-primary/5 text-lg font-medium transition active:scale-95 animate-slide-up"
+                                    style="animation-delay: ${idx * 0.1}s">
                                 ${opt}
                             </button>
                         `).join('') :
@@ -516,9 +528,9 @@ class App {
         const overlay = document.createElement('div');
         overlay.className = `fixed inset-0 z-50 flex items-end justify-center p-4 animate-slide-up`;
         overlay.innerHTML = `
-            <div class="w-full max-w-md ${isCorrect ? 'bg-success' : 'bg-error'} p-6 rounded-3xl text-white shadow-2xl mb-4">
+            <div class="w-full max-w-md ${isCorrect ? 'bg-success animate-bounce-in' : 'bg-error animate-shake'} p-6 rounded-3xl text-white shadow-2xl mb-4">
                 <div class="flex items-center space-x-4 mb-4">
-                    <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center text-2xl">
+                    <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center text-2xl shadow-lg">
                         ${isCorrect ? '✓' : '✕'}
                     </div>
                     <div>
@@ -560,11 +572,11 @@ class App {
 
         this.container.innerHTML = `
             <div class="flex flex-col min-h-screen bg-white animate-fade-in p-6 items-center justify-center text-center">
-                <div class="text-6xl mb-6">${completed ? (this.gameState.isTest ? '📜' : '🏆') : '💔'}</div>
+                <div class="text-6xl mb-6 animate-bounce-in">${completed ? (this.gameState.isTest ? '📜' : '🏆') : '💔'}</div>
                 <h2 class="text-3xl font-bold mb-2">${completed ? (this.gameState.isTest ? 'Test Complete!' : 'Tense Mastery!') : 'Game Over'}</h2>
                 <p class="text-gray-500 mb-8">${completed ? 'You finished the session!' : 'Better luck next time!'}</p>
                 
-                <div class="w-full bg-soft-gray rounded-3xl p-6 mb-8 space-y-4">
+                <div class="w-full bg-soft-gray rounded-3xl p-6 mb-8 space-y-4 animate-bounce-in" style="animation-delay: 0.2s">
                     <div class="flex justify-between items-center">
                         <span class="text-gray-500">Correct Answers</span>
                         <span class="font-bold text-success">${this.gameState.score} / ${this.gameState.questions.length}</span>
@@ -575,9 +587,9 @@ class App {
                     </div>
                 </div>
 
-                <div class="w-full space-y-3">
-                    <button onclick="app.navigate('home')" class="w-full bg-primary text-white font-bold py-4 rounded-2xl shadow-lg">Back to Home</button>
-                    <button onclick="app.navigate('${this.gameState.isTest ? 'test' : 'learn'}')" class="w-full border-2 border-gray-100 text-gray-400 font-bold py-4 rounded-2xl">Return to Section</button>
+                <div class="w-full space-y-3 animate-slide-up" style="animation-delay: 0.4s">
+                    <button onclick="app.navigate('home')" class="w-full bg-primary text-white font-bold py-4 rounded-2xl shadow-lg active:scale-95 transition">Back to Home</button>
+                    <button onclick="app.navigate('${this.gameState.isTest ? 'test' : 'learn'}')" class="w-full border-2 border-gray-100 text-gray-400 font-bold py-4 rounded-2xl active:scale-95 transition">Return to Section</button>
                 </div>
             </div>
         `;
