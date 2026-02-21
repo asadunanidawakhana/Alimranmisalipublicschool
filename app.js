@@ -386,14 +386,20 @@ class App {
         this.gameState = {
             isTest: false,
             tenseId,
-            // Shuffle all questions
             questions: tenseQuestions.sort(() => Math.random() - 0.5),
             currentIndex: 0,
             score: 0,
             lives: 5,
             xpEarned: 0,
             scrambledWords: [],
-            userWords: []
+            userWords: [],
+            matchingData: {
+                leftItems: null,
+                rightItems: null,
+                selectedLeft: null,
+                selectedRight: null,
+                matchedPairs: []
+            }
         };
 
         this.renderQuestion();
@@ -457,7 +463,14 @@ class App {
             lives: Infinity, // No lives limit in test mode
             xpEarned: 0,
             scrambledWords: [],
-            userWords: []
+            userWords: [],
+            matchingData: {
+                leftItems: null,
+                rightItems: null,
+                selectedLeft: null,
+                selectedRight: null,
+                matchedPairs: []
+            }
         };
 
         this.renderQuestion();
@@ -573,12 +586,28 @@ class App {
 
         document.getElementById('next-q').onclick = () => {
             overlay.remove();
+
+            // Safety check for gameState
+            if (!this.gameState || !this.gameState.questions) {
+                return this.navigate('home');
+            }
+
             if (this.gameState.lives <= 0 && !this.gameState.isTest) {
                 this.endGame(false);
             } else if (this.gameState.currentIndex >= this.gameState.questions.length - 1) {
                 this.endGame(true);
             } else {
                 this.gameState.currentIndex++;
+                // Reset per-question state
+                this.gameState.scrambledWords = null;
+                this.gameState.userWords = [];
+                if (this.gameState.matchingData) {
+                    this.gameState.matchingData.leftItems = null;
+                    this.gameState.matchingData.rightItems = null;
+                    this.gameState.matchingData.selectedLeft = null;
+                    this.gameState.matchingData.selectedRight = null;
+                    this.gameState.matchingData.matchedPairs = [];
+                }
                 this.renderQuestion();
             }
         };
@@ -738,7 +767,7 @@ class App {
     }
 
     renderScramble(q) {
-        if (!this.gameState.scrambledWords || this.gameState.scrambledWords.length === 0) {
+        if (!this.gameState.scrambledWords || (this.gameState.scrambledWords.length === 0 && this.gameState.userWords.length === 0)) {
             this.gameState.scrambledWords = [...q.answer].sort(() => Math.random() - 0.5);
             this.gameState.userWords = [];
         }
@@ -789,14 +818,24 @@ class App {
         const q = this.gameState.questions[this.gameState.currentIndex];
         const isCorrect = JSON.stringify(this.gameState.userWords) === JSON.stringify(q.answer);
 
-        // Reset scramble state for next time
-        this.gameState.scrambledWords = [];
+        // Reset scramble state for next time to null so it re-initializes
+        this.gameState.scrambledWords = null;
         this.gameState.userWords = [];
 
         this.checkAnswer(isCorrect ? q.answer.join(' ') : 'wrong', isCorrect);
     }
 
     renderMatchPairs(q) {
+        if (!this.gameState.matchingData) {
+            this.gameState.matchingData = {
+                leftItems: null,
+                rightItems: null,
+                selectedLeft: null,
+                selectedRight: null,
+                matchedPairs: []
+            };
+        }
+
         if (!this.gameState.matchingData.leftItems) {
             const leftItems = q.pairs.map(p => ({ id: Math.random(), text: p.english, matchId: p.english }));
             const rightItems = q.pairs.map(p => ({ id: Math.random(), text: p.urdu, matchId: p.english }));
