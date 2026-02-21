@@ -91,33 +91,47 @@ class App {
     }
 
     async renderView(view, params, storeInHistory = true) {
-        this.currentView = view;
-        this.container.innerHTML = '';
+        try {
+            this.currentView = view;
+            this.container.innerHTML = '';
 
-        switch (view) {
-            case 'onboarding':
-                await this.renderOnboarding();
-                break;
-            case 'home':
-                await this.renderHome();
-                break;
-            case 'learn':
-                await this.renderLearn();
-                break;
-            case 'tense-detail':
-                await this.renderTenseDetail(params.id);
-                break;
-            case 'game':
-                await this.startGame(params.id);
-                break;
-            case 'test':
-                await this.renderTest();
-                break;
-            case 'profile':
-                await this.renderProfile();
-                break;
-            default:
-                this.container.innerHTML = `<div class="p-10 text-center">View "${view}" coming soon!</div>`;
+            // Close any existing overlays first
+            const existingOverlays = document.querySelectorAll('.fixed.z-50');
+            existingOverlays.forEach(o => o.remove());
+
+            switch (view) {
+                case 'onboarding':
+                    await this.renderOnboarding();
+                    break;
+                case 'home':
+                    await this.renderHome();
+                    break;
+                case 'learn':
+                    await this.renderLearn();
+                    break;
+                case 'tense-detail':
+                    await this.renderTenseDetail(params.id);
+                    break;
+                case 'game':
+                    await this.startGame(params.id);
+                    break;
+                case 'test':
+                    await this.renderTest();
+                    break;
+                case 'profile':
+                    await this.renderProfile();
+                    break;
+                default:
+                    this.container.innerHTML = `<div class="p-10 text-center">View "${view}" coming soon!</div>`;
+            }
+        } catch (error) {
+            console.error(`Error rendering view: ${view}`, error);
+            this.container.innerHTML = `
+                <div class="p-10 text-center">
+                    <p class="text-error font-bold">Something went wrong / کچھ غلط ہو گیا</p>
+                    <button onclick="app.navigate('home')" class="mt-4 bg-primary text-white px-6 py-2 rounded-xl">Go Home / ہوم پر جائیں</button>
+                </div>
+            `;
         }
     }
 
@@ -425,6 +439,7 @@ class App {
     generateOptions(correctAnswer, tenseId) {
         const options = [correctAnswer];
         const otherExamples = Object.values(tenses)
+            .filter(t => t.examples && Array.isArray(t.examples))
             .flatMap(t => t.examples)
             .filter(ex => ex.english !== correctAnswer);
 
@@ -434,7 +449,17 @@ class App {
             .slice(0, 3)
             .map(ex => ex.english);
 
-        return [...options, ...distractors].sort(() => Math.random() - 0.5);
+        // Ensure we always have 4 unique options if possible
+        const finalOptions = Array.from(new Set([...options, ...distractors]));
+
+        // Add fallbacks if not enough distractors
+        const fallbacks = ['I go to school.', 'She is happy.', 'They play here.', 'We are learning.'];
+        while (finalOptions.length < 4) {
+            const extra = fallbacks[Math.floor(Math.random() * fallbacks.length)];
+            if (!finalOptions.includes(extra)) finalOptions.push(extra);
+        }
+
+        return finalOptions.sort(() => Math.random() - 0.5);
     }
 
     async startTest() {
@@ -548,13 +573,15 @@ class App {
         const q = this.gameState.questions[this.gameState.currentIndex];
         if (!q) return;
 
+        // Disable all buttons in the answer area to prevent multi-clicks
+        const buttons = this.container.querySelectorAll('button');
+        buttons.forEach(btn => btn.disabled = true);
+
         let isCorrect = false;
         if (q.type === 'mcq' || q.type === 'fill') {
-            isCorrect = userAnswer.toLowerCase().trim() === q.answer.toLowerCase().trim();
+            isCorrect = String(userAnswer).toLowerCase().trim() === String(q.answer).toLowerCase().trim();
         } else {
             // For scramble/match, logic is handled in their specific check methods
-            // and they pass isCorrect via a second parameter if needed, or we use a separate method.
-            // Actually, my checkScrambleAnswer calls checkAnswer(string, isCorrect)
             isCorrect = arguments[1] !== undefined ? arguments[1] : false;
         }
 
@@ -564,7 +591,7 @@ class App {
             this.showFeedback(true, typeof q.answer === 'string' ? q.answer : (q.sentence || 'Correct!'));
         } else {
             if (!this.gameState.isTest) this.gameState.lives--;
-            const correctText = typeof q.answer === 'string' ? q.answer : (q.answer ? q.answer.join(' ') : (q.sentence || 'Incorrect'));
+            const correctText = typeof q.answer === 'string' ? q.answer : (q.answer ? (Array.isArray(q.answer) ? q.answer.join(' ') : q.answer) : (q.sentence || 'Incorrect'));
             this.showFeedback(false, correctText);
         }
     }
