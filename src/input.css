@@ -1,0 +1,108 @@
+@import "tailwindcss";
+
+@theme {
+    --color-primary: #2563EB;
+    --color-secondary: #F97316;
+    --color-success: #10B981;
+    --color-warning: #FBBF24;
+    --color-error: #EF4444;
+    --color-accent: #8B5CF6;
+    --color-soft-gray: #F9FAFB;
+
+    --font-family-poppins: "Poppins", sans-serif;
+    --font-family-inter: "Inter", sans-serif;
+    --font-family-urdu: "Noto Nastaliq Urdu", serif;
+}
+
+@layer components {
+
+    /* Urdu Readability */
+    .font-urdu {
+        line-height: 1.8;
+        direction: rtl;
+        font-size: 1.125rem;
+    }
+
+    /* Glassmorphism */
+    .glass {
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+}
+
+@layer utilities {
+
+    /* Animations */
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+
+        to {
+            opacity: 1;
+        }
+    }
+
+    @keyframes slideUp {
+        from {
+            transform: translateY(20px);
+            opacity: 0;
+        }
+
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+
+    @keyframes pulse-soft {
+
+        0%,
+        100% {
+            transform: scale(1);
+        }
+
+        50% {
+            transform: scale(1.05);
+        }
+    }
+
+    .animate-fade-in {
+        animation: fadeIn 0.5s ease-out forwards;
+    }
+
+    .animate-slide-up {
+        animation: slideUp 0.5s ease-out forwards;
+    }
+
+    .animate-pulse-soft {
+        animation: pulse-soft 2s infinite ease-in-out;
+    }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: #F9FAFB;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #CBD5E1;
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #94A3B8;
+}
+
+/* Mobile specific fixes */
+@media (max-width: 640px) {
+    #app {
+        box-shadow: none;
+    }
+}
