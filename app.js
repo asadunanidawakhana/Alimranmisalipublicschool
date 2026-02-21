@@ -503,14 +503,14 @@ class App {
                     <p class="text-gray-400 text-sm font-bold mb-2 uppercase tracking-widest">Question ${this.gameState.currentIndex + 1} of ${this.gameState.questions.length}</p>
                     <h2 class="text-2xl font-bold mb-4">${q.question || q.sentence || 'Practice Time!'}</h2>
                     ${q.urdu ? `<p class="text-gray-500 font-urdu border-t pt-4 w-full">${q.urdu}</p>` : ''}
-                    <button onclick="app.speak('${(q.question || q.sentence || '').replace(/'/g, "\\'").replace(/"/g, "&quot;")}')" class="mt-4 w-12 h-12 rounded-full bg-primary/5 flex items-center justify-center text-xl">🔊</button>
+                    <button id="speak-btn" class="mt-4 w-12 h-12 rounded-full bg-primary/5 flex items-center justify-center text-xl">🔊</button>
                 </div>
 
                 <!-- Answer Options -->
                 <div class="p-6 space-y-3 pb-12">
                     ${q.type === 'mcq' ?
                 q.options.map((opt, idx) => `
-                            <button onclick="app.checkAnswer('${opt.replace(/'/g, "\\'").replace(/"/g, "&quot;")}')" 
+                            <button onclick="app.handleMCQClick(this)" data-answer="${opt.replace(/"/g, "&quot;")}" 
                                     class="w-full p-4 rounded-2xl border-2 border-gray-100 hover:border-primary hover:bg-primary/5 text-lg font-medium transition active:scale-95 animate-slide-up"
                                     style="animation-delay: ${idx * 0.1}s">
                                 ${opt}
@@ -530,6 +530,12 @@ class App {
                 </div>
             </div>
         `;
+
+        // Attach listeners for non-attribute based interaction
+        const speakBtn = document.getElementById('speak-btn');
+        if (speakBtn) {
+            speakBtn.onclick = () => this.speak(q.question || q.sentence || '');
+        }
 
         if (q.type === 'fill') {
             document.getElementById('fill-answer').onkeypress = (e) => {
@@ -777,7 +783,7 @@ class App {
                 <!-- Drop Zone -->
                 <div class="min-h-[100px] p-4 bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200 flex flex-wrap gap-2 items-center justify-center">
                     ${this.gameState.userWords.map((word, idx) => `
-                        <span onclick="app.handleScrambleClick('${word}', ${idx}, true)" class="px-4 py-2 bg-primary text-white rounded-xl font-bold cursor-pointer animate-bounce-in shadow-md">
+                        <span onclick="app.handleScrambleClick(${idx}, true)" class="px-4 py-2 bg-primary text-white rounded-xl font-bold cursor-pointer animate-bounce-in shadow-md">
                             ${word}
                         </span>
                     `).join('')}
@@ -787,7 +793,7 @@ class App {
                 <!-- Word Bank -->
                 <div class="flex flex-wrap gap-3 justify-center">
                     ${this.gameState.scrambledWords.map((word, idx) => `
-                        <button onclick="app.handleScrambleClick('${word}', ${idx}, false)" 
+                        <button onclick="app.handleScrambleClick(${idx}, false)" 
                                 class="px-6 py-3 bg-white border-2 border-gray-100 rounded-2xl font-bold text-gray-700 active:scale-95 transition hover:border-primary shadow-sm">
                             ${word}
                         </button>
@@ -803,15 +809,19 @@ class App {
         `;
     }
 
-    handleScrambleClick(word, index, isFromUser) {
+    handleScrambleClick(index, isFromUser) {
         if (isFromUser) {
-            this.gameState.userWords.splice(index, 1);
+            const word = this.gameState.userWords.splice(index, 1)[0];
             this.gameState.scrambledWords.push(word);
         } else {
-            this.gameState.scrambledWords.splice(index, 1);
+            const word = this.gameState.scrambledWords.splice(index, 1)[0];
             this.gameState.userWords.push(word);
         }
         this.renderQuestion();
+    }
+
+    handleMCQClick(btn) {
+        this.checkAnswer(btn.getAttribute('data-answer'));
     }
 
     checkScrambleAnswer() {
@@ -854,7 +864,8 @@ class App {
                         ${this.gameState.matchingData.leftItems.map(item => {
             const isMatched = matchedPairs.includes(item.matchId);
             return `
-                                <button onclick="${isMatched ? '' : `app.handleMatchClick('${item.matchId}', 'left')`}"
+                                <button onclick="${isMatched ? '' : 'app.handleMatchClick(this)'}"
+                                        data-match-id="${item.matchId.replace(/"/g, "&quot;")}" data-side="left"
                                         class="w-full p-4 rounded-xl border-2 text-sm transition-all
                                         ${isMatched ? 'bg-success/20 border-success text-success opacity-50' :
                     selectedLeft === item.matchId ? 'border-primary bg-primary/5 text-primary scale-95' : 'border-gray-100 text-gray-700 bg-white shadow-sm'}">
@@ -869,7 +880,8 @@ class App {
                         ${this.gameState.matchingData.rightItems.map(item => {
             const isMatched = matchedPairs.includes(item.matchId);
             return `
-                                <button onclick="${isMatched ? '' : `app.handleMatchClick('${item.matchId}', 'right')`}"
+                                <button onclick="${isMatched ? '' : 'app.handleMatchClick(this)'}"
+                                        data-match-id="${item.matchId.replace(/"/g, "&quot;")}" data-side="right"
                                         class="w-full p-4 rounded-xl border-2 text-right text-sm font-urdu transition-all
                                         ${isMatched ? 'bg-success/20 border-success text-success opacity-50' :
                     selectedRight === item.matchId ? 'border-primary bg-primary/5 text-primary scale-95' : 'border-gray-100 text-gray-800 bg-white shadow-sm'}">
@@ -889,7 +901,16 @@ class App {
         `;
     }
 
-    handleMatchClick(matchId, side) {
+    handleMatchClick(target) {
+        let matchId, side;
+        if (typeof target === 'string') {
+            matchId = target;
+            side = arguments[1];
+        } else {
+            matchId = target.getAttribute('data-match-id');
+            side = target.getAttribute('data-side');
+        }
+
         if (side === 'left') {
             this.gameState.matchingData.selectedLeft = matchId;
         } else {
