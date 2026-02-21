@@ -488,16 +488,16 @@ class App {
                 <!-- Question Area -->
                 <div class="flex-1 p-6 flex flex-col items-center justify-center text-center">
                     <p class="text-gray-400 text-sm font-bold mb-2 uppercase tracking-widest">Question ${this.gameState.currentIndex + 1} of ${this.gameState.questions.length}</p>
-                    <h2 class="text-2xl font-bold mb-4">${q.question}</h2>
-                    <p class="text-gray-500 font-urdu border-t pt-4 w-full">${q.urdu}</p>
-                    <button onclick="app.speak('${q.question.replace(/'/g, "\\'")}')" class="mt-4 w-12 h-12 rounded-full bg-primary/5 flex items-center justify-center text-xl">🔊</button>
+                    <h2 class="text-2xl font-bold mb-4">${q.question || q.sentence || 'Practice Time!'}</h2>
+                    ${q.urdu ? `<p class="text-gray-500 font-urdu border-t pt-4 w-full">${q.urdu}</p>` : ''}
+                    <button onclick="app.speak('${(q.question || q.sentence || '').replace(/'/g, "\\'").replace(/"/g, "&quot;")}')" class="mt-4 w-12 h-12 rounded-full bg-primary/5 flex items-center justify-center text-xl">🔊</button>
                 </div>
 
                 <!-- Answer Options -->
                 <div class="p-6 space-y-3 pb-12">
                     ${q.type === 'mcq' ?
                 q.options.map((opt, idx) => `
-                            <button onclick="app.checkAnswer('${opt.replace(/'/g, "\\'")}')" 
+                            <button onclick="app.checkAnswer('${opt.replace(/'/g, "\\'").replace(/"/g, "&quot;")}')" 
                                     class="w-full p-4 rounded-2xl border-2 border-gray-100 hover:border-primary hover:bg-primary/5 text-lg font-medium transition active:scale-95 animate-slide-up"
                                     style="animation-delay: ${idx * 0.1}s">
                                 ${opt}
@@ -527,15 +527,26 @@ class App {
 
     checkAnswer(userAnswer) {
         const q = this.gameState.questions[this.gameState.currentIndex];
-        const isCorrect = userAnswer.toLowerCase().trim() === q.answer.toLowerCase().trim();
+        if (!q) return;
+
+        let isCorrect = false;
+        if (q.type === 'mcq' || q.type === 'fill') {
+            isCorrect = userAnswer.toLowerCase().trim() === q.answer.toLowerCase().trim();
+        } else {
+            // For scramble/match, logic is handled in their specific check methods
+            // and they pass isCorrect via a second parameter if needed, or we use a separate method.
+            // Actually, my checkScrambleAnswer calls checkAnswer(string, isCorrect)
+            isCorrect = arguments[1] !== undefined ? arguments[1] : false;
+        }
 
         if (isCorrect) {
             this.gameState.score++;
             this.gameState.xpEarned += (this.gameState.isTest ? 20 : 10);
-            this.showFeedback(true, q.answer);
+            this.showFeedback(true, typeof q.answer === 'string' ? q.answer : (q.sentence || 'Correct!'));
         } else {
             if (!this.gameState.isTest) this.gameState.lives--;
-            this.showFeedback(false, q.answer);
+            const correctText = typeof q.answer === 'string' ? q.answer : (q.answer ? q.answer.join(' ') : (q.sentence || 'Incorrect'));
+            this.showFeedback(false, correctText);
         }
     }
 
