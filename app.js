@@ -29,6 +29,25 @@ class App {
             }
         };
         this.init();
+
+        // Global error handler to prevent mysterious blank pages
+        window.onerror = (msg, url, line, col, error) => {
+            console.error("Global Error:", error || msg);
+            if (this.container) {
+                this.container.innerHTML = `
+                    <div class="p-10 text-center flex flex-col items-center justify-center min-h-screen">
+                        <div class="text-5xl mb-4">⚠️</div>
+                        <h2 class="text-xl font-bold text-error mb-2">Something went wrong</h2>
+                        <p class="text-gray-500 mb-6 text-sm">ایپ میں کوئی خرابی آگئی ہے</p>
+                        <p class="text-[10px] text-gray-400 mb-6 overflow-hidden max-w-xs">${msg}</p>
+                        <button onclick="location.reload()" class="bg-primary text-white font-bold px-8 py-3 rounded-2xl shadow-lg active:scale-95 transition">
+                            Reload App / دوبارہ لوڈ کریں
+                        </button>
+                    </div>
+                `;
+            }
+            return false;
+        };
     }
 
     async init() {
@@ -39,7 +58,13 @@ class App {
         if (!store.data.user.name) {
             this.navigate('onboarding');
         } else {
-            this.navigate('home');
+            // Handle hash on refresh
+            const hash = window.location.hash.substring(1);
+            if (hash && hash !== 'home' && hash !== 'onboarding' && hash !== 'game' && hash !== 'test') {
+                this.renderView(hash, {});
+            } else {
+                this.navigate('home');
+            }
         }
 
         // Listen for back button
@@ -379,7 +404,9 @@ class App {
     }
 
     speak(text) {
+        if (!text) return;
         const synth = window.speechSynthesis;
+        synth.cancel(); // Abort previous speech to avoid hangs
         const utter = new SpeechSynthesisUtterance(text);
         utter.rate = 0.9;
         synth.speak(utter);
@@ -405,7 +432,7 @@ class App {
             score: 0,
             lives: 5,
             xpEarned: 0,
-            scrambledWords: [],
+            scrambledWords: null,
             userWords: [],
             matchingData: {
                 leftItems: null,
@@ -502,122 +529,157 @@ class App {
     }
 
     renderQuestion() {
-        const q = this.gameState.questions[this.gameState.currentIndex];
-        const progress = ((this.gameState.currentIndex) / this.gameState.questions.length) * 100;
-
-        this.container.innerHTML = `
-            <div class="flex flex-col min-h-screen bg-white animate-fade-in">
-                <!-- Game Header -->
-                <div class="p-4 flex items-center justify-between">
-                    <button onclick="app.navigate(app.gameState.isTest ? 'test' : 'tense-detail', {id: '${this.gameState.tenseId}'})" class="text-2xl p-2">✕</button>
-                    <div class="flex-1 mx-4">
-                        <div class="w-full bg-gray-100 h-3 rounded-full overflow-hidden">
-                            <div class="bg-success h-full transition-all duration-500" style="width: ${progress}%"></div>
-                        </div>
-                    </div>
-                    <div class="flex items-center space-x-1">
-                        ${this.gameState.isTest ? '<span class="text-primary font-bold">TEST MODE</span>' : `
-                        <span class="text-error text-xl">❤️</span>
-                        <span class="font-bold">${this.gameState.lives}</span>
-                        `}
-                    </div>
-                </div>
-
-                <!-- Question Area -->
-                <div class="flex-1 p-6 flex flex-col items-center justify-center text-center">
-                    <p class="text-gray-400 text-sm font-bold mb-2 uppercase tracking-widest">Question ${this.gameState.currentIndex + 1} of ${this.gameState.questions.length}</p>
-                    <h2 class="text-2xl font-bold mb-4">${q.question || q.sentence || 'Practice Time!'}</h2>
-                    ${q.urdu ? `<p class="text-gray-500 font-urdu border-t pt-4 w-full">${q.urdu}</p>` : ''}
-                    <button id="speak-btn" class="mt-4 w-12 h-12 rounded-full bg-primary/5 flex items-center justify-center text-xl">🔊</button>
-                </div>
-
-                <!-- Answer Options -->
-                <div class="p-6 space-y-3 pb-12">
-                    ${q.type === 'mcq' ?
-                q.options.map((opt, idx) => `
-                            <button onclick="app.handleMCQClick(this)" data-answer="${opt.replace(/"/g, "&quot;")}" 
-                                    class="w-full p-4 rounded-2xl border-2 border-gray-100 hover:border-primary hover:bg-primary/5 text-lg font-medium transition active:scale-95 animate-slide-up"
-                                    style="animation-delay: ${idx * 0.1}s">
-                                ${opt}
-                            </button>
-                        `).join('') :
-                q.type === 'scramble' ?
-                    this.renderScramble(q) :
-                    q.type === 'match_pairs' ?
-                        this.renderMatchPairs(q) :
-                        `
-                        <div class="space-y-4">
-                            <input type="text" id="fill-answer" class="w-full p-4 rounded-2xl border-2 border-gray-100 focus:border-primary outline-none text-lg text-center" placeholder="Type your answer...">
-                            <button onclick="app.checkAnswer(document.getElementById('fill-answer').value)" class="w-full bg-primary text-white font-bold py-4 rounded-2xl shadow-lg">Check Answer</button>
-                        </div>
-                    `
+        try {
+            if (!this.gameState || !this.gameState.questions || this.gameState.questions.length === 0) {
+                console.error("No questions found in gameState", this.gameState);
+                return this.navigate('home');
             }
+
+            const q = this.gameState.questions[this.gameState.currentIndex];
+            if (!q) {
+                console.error("Question at current index is missing", this.gameState.currentIndex);
+                return this.navigate('home');
+            }
+
+            const progress = ((this.gameState.currentIndex) / this.gameState.questions.length) * 100;
+
+            // PRE-RENDER content to variable to ensure we don't clear container if render logic fails
+            let questionContent = '';
+            if (q.type === 'mcq') {
+                questionContent = q.options.map((opt, idx) => `
+                    <button onclick="app.handleMCQClick(this)" data-answer="${String(opt).replace(/"/g, "&quot;")}" 
+                            class="w-full p-4 rounded-2xl border-2 border-gray-100 hover:border-primary hover:bg-primary/5 text-lg font-medium transition active:scale-95 animate-slide-up"
+                            style="animation-delay: ${idx * 0.1}s">
+                        ${opt}
+                    </button>
+                `).join('');
+            } else if (q.type === 'scramble') {
+                questionContent = this.renderScramble(q);
+            } else if (q.type === 'match_pairs') {
+                questionContent = this.renderMatchPairs(q);
+            } else {
+                questionContent = `
+                    <div class="space-y-4">
+                        <input type="text" id="fill-answer" class="w-full p-4 rounded-2xl border-2 border-gray-100 focus:border-primary outline-none text-lg text-center" placeholder="Type your answer...">
+                        <button onclick="app.checkAnswer(document.getElementById('fill-answer').value)" class="w-full bg-primary text-white font-bold py-4 rounded-2xl shadow-lg">Check Answer</button>
+                    </div>
+                `;
+            }
+
+            this.container.innerHTML = `
+                <div class="flex flex-col min-h-screen bg-white animate-fade-in">
+                    <!-- Game Header -->
+                    <div class="p-4 flex items-center justify-between">
+                        <button onclick="app.navigate(app.gameState.isTest ? 'test' : 'tense-detail', {id: '${this.gameState.tenseId}'})" class="text-2xl p-2">✕</button>
+                        <div class="flex-1 mx-4">
+                            <div class="w-full bg-gray-100 h-3 rounded-full overflow-hidden">
+                                <div class="bg-success h-full transition-all duration-500" style="width: ${progress}%"></div>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-1">
+                            ${this.gameState.isTest ? '<span class="text-primary font-bold">TEST</span>' : `
+                            <span class="text-error text-xl">❤️</span>
+                            <span class="font-bold">${this.gameState.lives}</span>
+                            `}
+                        </div>
+                    </div>
+
+                    <!-- Question Area -->
+                    <div class="flex-1 p-6 flex flex-col items-center justify-center text-center">
+                        <p class="text-gray-400 text-sm font-bold mb-2 uppercase tracking-widest">Question ${this.gameState.currentIndex + 1} of ${this.gameState.questions.length}</p>
+                        <h2 class="text-2xl font-bold mb-4">${q.question || q.sentence || 'Practice Time!'}</h2>
+                        ${q.urdu ? `<p class="text-gray-500 font-urdu border-t pt-4 w-full">${q.urdu}</p>` : ''}
+                        <button id="speak-btn" class="mt-4 w-12 h-12 rounded-full bg-primary/5 flex items-center justify-center text-xl">🔊</button>
+                    </div>
+
+                    <!-- Answer Options -->
+                    <div class="p-6 space-y-3 pb-12">
+                        ${questionContent}
+                    </div>
                 </div>
-            </div>
-        `;
+            `;
 
-        // Attach listeners for non-attribute based interaction
-        const speakBtn = document.getElementById('speak-btn');
-        if (speakBtn) {
-            speakBtn.onclick = () => this.speak(q.question || q.sentence || '');
-        }
+            // Attach listeners
+            const speakBtn = document.getElementById('speak-btn');
+            if (speakBtn) speakBtn.onclick = () => this.speak(q.question || q.sentence || '');
 
-        if (q.type === 'fill') {
-            document.getElementById('fill-answer').onkeypress = (e) => {
-                if (e.key === 'Enter') app.checkAnswer(e.target.value);
-            };
+            if (q.type === 'fill') {
+                const input = document.getElementById('fill-answer');
+                if (input) {
+                    input.onkeypress = (e) => {
+                        if (e.key === 'Enter') this.checkAnswer(e.target.value);
+                    };
+                }
+            }
+        } catch (error) {
+            console.error("Error in renderQuestion:", error);
+            this.container.innerHTML = `<div class="p-10 text-center"><p class="text-error">Rendering Error. Please try again.</p></div>`;
         }
     }
 
     checkAnswer(userAnswer) {
-        const q = this.gameState.questions[this.gameState.currentIndex];
-        if (!q) return;
+        try {
+            const q = this.gameState.questions[this.gameState.currentIndex];
+            if (!q) return;
 
-        // Disable all buttons in the answer area to prevent multi-clicks
-        const buttons = this.container.querySelectorAll('button');
-        buttons.forEach(btn => btn.disabled = true);
+            // Disable all buttons in the answer area to prevent multi-clicks
+            const buttons = this.container.querySelectorAll('button, input');
+            buttons.forEach(btn => {
+                btn.disabled = true;
+                btn.classList.add('opacity-50', 'pointer-events-none');
+            });
 
-        let isCorrect = false;
-        if (q.type === 'mcq' || q.type === 'fill') {
-            isCorrect = String(userAnswer).toLowerCase().trim() === String(q.answer).toLowerCase().trim();
-        } else {
-            // For scramble/match, logic is handled in their specific check methods
-            isCorrect = arguments[1] !== undefined ? arguments[1] : false;
-        }
+            let isCorrect = false;
+            if (q.type === 'mcq' || q.type === 'fill') {
+                isCorrect = String(userAnswer || '').toLowerCase().trim() === String(q.answer).toLowerCase().trim();
+            } else {
+                // For scramble/match, logic is handled in their specific check methods
+                isCorrect = arguments[1] !== undefined ? arguments[1] : false;
+            }
 
-        if (isCorrect) {
-            this.gameState.score++;
-            this.gameState.xpEarned += (this.gameState.isTest ? 20 : 10);
-            this.showFeedback(true, typeof q.answer === 'string' ? q.answer : (q.sentence || 'Correct!'));
-        } else {
-            if (!this.gameState.isTest) this.gameState.lives--;
-            const correctText = typeof q.answer === 'string' ? q.answer : (q.answer ? (Array.isArray(q.answer) ? q.answer.join(' ') : q.answer) : (q.sentence || 'Incorrect'));
-            this.showFeedback(false, correctText);
+            if (isCorrect) {
+                this.gameState.score++;
+                this.gameState.xpEarned += (this.gameState.isTest ? 20 : 10);
+                this.showFeedback(true, typeof q.answer === 'string' ? q.answer : (Array.isArray(q.answer) ? q.answer.join(' ') : 'Correct!'));
+            } else {
+                if (!this.gameState.isTest) this.gameState.lives--;
+                const correctText = typeof q.answer === 'string' ? q.answer : (q.answer ? (Array.isArray(q.answer) ? q.answer.join(' ') : q.answer) : (q.sentence || 'Incorrect'));
+                this.showFeedback(false, correctText);
+            }
+        } catch (error) {
+            console.error("Error checking answer:", error);
+            // Re-enable in case of crash to avoid soft-lock
+            const buttons = this.container.querySelectorAll('button, input');
+            buttons.forEach(btn => {
+                btn.disabled = false;
+                btn.classList.remove('opacity-50', 'pointer-events-none');
+            });
+            this.showFeedback(false, "Error occurred / ایرر آ گیا");
         }
     }
 
     showFeedback(isCorrect, correctAnswer) {
         const overlay = document.createElement('div');
-        overlay.className = `fixed inset-0 z-50 flex items-end justify-center p-4 animate-slide-up`;
+        overlay.className = `fixed inset-0 z-50 flex items-end justify-center p-4 animate-slide-up bg-black/20`; // Added bg-black/20 for better focus
         overlay.innerHTML = `
-            <div class="w-full max-w-md ${isCorrect ? 'bg-success animate-bounce-in' : 'bg-error animate-shake'} p-6 rounded-3xl text-white shadow-2xl mb-4">
+            <div class="w-full max-w-md ${isCorrect ? 'bg-success' : 'bg-error'} p-6 rounded-3xl text-white shadow-2xl mb-4 animate-bounce-in">
                 <div class="flex items-center space-x-4 mb-4">
                     <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center text-2xl shadow-lg">
                         ${isCorrect ? '✓' : '✕'}
                     </div>
                     <div>
-                        <h3 class="text-xl font-bold">${isCorrect ? 'Excellent!' : 'Correct Answer:'}</h3>
-                        <p class="font-bold opacity-90">${isCorrect ? (this.gameState.isTest ? '+20 XP' : '+10 XP') : correctAnswer}</p>
+                        <h3 class="text-xl font-bold text-white">${isCorrect ? 'Excellent!' : 'Correct Answer:'}</h3>
+                        <p class="font-bold opacity-90 text-white">${isCorrect ? (this.gameState.isTest ? '+20 XP' : '+10 XP') : correctAnswer}</p>
                     </div>
                 </div>
                 <button id="next-q" class="w-full bg-white ${isCorrect ? 'text-success' : 'text-error'} font-bold py-4 rounded-2xl shadow-md active:scale-95 transition">
-                    CONTINUE
+                    CONTINUE / آگے بڑھیں
                 </button>
             </div>
         `;
         document.body.appendChild(overlay);
 
-        document.getElementById('next-q').onclick = () => {
+        overlay.querySelector('#next-q').onclick = () => {
             overlay.remove();
 
             // Safety check for gameState
