@@ -7,6 +7,8 @@ import { store } from './js/store.js';
 import { tenses } from './js/data/tenses.js';
 import { questions } from './js/data/questions.js';
 import { badges } from './js/data/badges.js';
+import { activePassive } from './js/data/active_passive.js';
+import { apQuestions } from './js/data/ap_questions.js';
 
 class App {
     constructor() {
@@ -14,6 +16,7 @@ class App {
         this.currentView = null;
         this.gameState = {
             isTest: false,
+            mode: 'tenses', // 'tenses' or 'activePassive'
             tenseId: null,
             questions: [],
             currentIndex: 0,
@@ -132,10 +135,19 @@ class App {
                     await this.renderHome();
                     break;
                 case 'learn':
-                    await this.renderLearn();
+                    await this.renderLearnSelection();
+                    break;
+                case 'learn-tenses':
+                    await this.renderLearn('tenses');
+                    break;
+                case 'learn-ap':
+                    await this.renderLearn('activePassive');
                     break;
                 case 'tense-detail':
                     await this.renderTenseDetail(params.id);
+                    break;
+                case 'ap-detail':
+                    await this.renderActivePassiveDetail(params.id);
                     break;
                 case 'game':
                     await this.startGame(params.id);
@@ -241,7 +253,7 @@ class App {
                     <div>
                         <div class="flex items-center justify-between mb-4 px-2">
                             <h3 class="font-bold text-lg">Master Tenses</h3>
-                            <button class="text-primary text-sm font-bold" onclick="app.navigate('learn')">See all</button>
+                            <button class="text-primary text-sm font-bold" onclick="app.navigate('learn-tenses')">See all</button>
                         </div>
                         <div class="grid grid-cols-2 gap-4">
                             <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center text-center cursor-pointer active:scale-95 transition" onclick="app.navigate('tense-detail', {id: 'simplePast'})">
@@ -259,7 +271,7 @@ class App {
                                 <p class="font-bold text-sm">Future</p>
                                 <p class="text-[10px] text-gray-500">${store.data.progress.tenses.simpleFuture}% Complete</p>
                             </div>
-                            <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center text-center cursor-pointer active:scale-95 transition" onclick="app.navigate('learn')">
+                            <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center text-center cursor-pointer active:scale-95 transition" onclick="app.navigate('learn-tenses')">
                                 <div class="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center text-purple-600 text-xl font-bold mb-3">...</div>
                                 <p class="font-bold text-sm">More</p>
                                 <p class="text-[10px] text-gray-500">View All</p>
@@ -273,30 +285,64 @@ class App {
         `;
     }
 
-    async renderLearn() {
+    async renderLearnSelection() {
         this.container.innerHTML = `
             <div class="flex flex-col min-h-screen bg-soft-gray animate-fade-in pb-24">
                 <div class="bg-white p-4 flex items-center space-x-4 shadow-sm sticky top-0 z-10">
-                    <button onclick="app.navigate('home')" class="p-2 -ml-2">←</button>
-                    <h2 class="text-xl font-bold">Tense Learning</h2>
+                    <button onclick="app.navigate('home')" class="p-2 -ml-2 text-xl">←</button>
+                    <h2 class="text-xl font-bold">What do you want to learn?</h2>
+                </div>
+                
+                <div class="p-6 space-y-6">
+                    <div class="bg-white p-8 rounded-[40px] shadow-sm border-2 border-primary/5 flex flex-col items-center text-center cursor-pointer active:scale-95 transition-all hover:bg-primary/5 group" onclick="app.navigate('learn-tenses')">
+                        <div class="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center text-primary text-5xl mb-6 group-hover:scale-110 transition-transform">📚</div>
+                        <h3 class="text-2xl font-bold text-gray-800 mb-2">Tenses</h3>
+                        <p class="text-gray-500 font-urdu">ٹینسز سیکھیں</p>
+                        <p class="mt-4 text-xs font-bold text-primary px-4 py-2 bg-primary/5 rounded-full">12 Lessons</p>
+                    </div>
+
+                    <div class="bg-white p-8 rounded-[40px] shadow-sm border-2 border-secondary/5 flex flex-col items-center text-center cursor-pointer active:scale-95 transition-all hover:bg-secondary/5 group" onclick="app.navigate('learn-ap')">
+                        <div class="w-24 h-24 bg-secondary/10 rounded-full flex items-center justify-center text-secondary text-5xl mb-6 group-hover:scale-110 transition-transform">🔄</div>
+                        <h3 class="text-2xl font-bold text-gray-800 mb-2">Active / Passive Voice</h3>
+                        <p class="text-gray-500 font-urdu">ایکٹو اور پیسو وائس سیکھیں</p>
+                        <p class="mt-4 text-xs font-bold text-secondary px-4 py-2 bg-secondary/5 rounded-full">8 Lessons</p>
+                    </div>
+                </div>
+                
+                ${this.getBottomNav()}
+            </div>
+        `;
+    }
+
+    async renderLearn(mode = 'tenses') {
+        const data = mode === 'tenses' ? tenses : activePassive;
+        const progressData = store.data.progress[mode] || {};
+        const title = mode === 'tenses' ? 'Tense Learning' : 'Active/Passive Voice';
+        const detailRoute = mode === 'tenses' ? 'tense-detail' : 'ap-detail';
+
+        this.container.innerHTML = `
+            <div class="flex flex-col min-h-screen bg-soft-gray animate-fade-in pb-24">
+                <div class="bg-white p-4 flex items-center space-x-4 shadow-sm sticky top-0 z-10">
+                    <button onclick="app.navigate('learn')" class="p-2 -ml-2 text-xl">←</button>
+                    <h2 class="text-xl font-bold">${title}</h2>
                 </div>
                 
                 <div class="p-4 grid grid-cols-1 gap-4 overflow-y-auto">
-                    ${Object.values(tenses).map(tense => `
-                        <div class="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex items-center justify-between cursor-pointer active:scale-95 transition" onclick="app.navigate('tense-detail', {id: '${tense.id}'})">
+                    ${Object.values(data).map(item => `
+                        <div class="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex items-center justify-between cursor-pointer active:scale-95 transition" onclick="app.navigate('${detailRoute}', {id: '${item.id}'})">
                             <div class="flex items-center space-x-4">
-                                <div class="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary text-xl font-bold">
-                                    ${tense.name[0]}
+                                <div class="w-12 h-12 ${mode === 'tenses' ? 'bg-primary/10 text-primary' : 'bg-secondary/10 text-secondary'} rounded-2xl flex items-center justify-center text-xl font-bold">
+                                    ${item.name[0]}
                                 </div>
                                 <div>
-                                    <h3 class="font-bold text-gray-800">${tense.name}</h3>
-                                    <p class="text-xs text-gray-500">${tense.urduName}</p>
+                                    <h3 class="font-bold text-gray-800">${item.name}</h3>
+                                    <p class="text-xs text-gray-500">${item.urduName || 'Voice Conversion'}</p>
                                 </div>
                             </div>
                             <div class="flex flex-col items-end">
-                                <div class="text-sm font-bold text-primary">${store.data.progress.tenses[tense.id] || 0}%</div>
+                                <div class="text-sm font-bold ${mode === 'tenses' ? 'text-primary' : 'text-secondary'}">${progressData[item.id] || 0}%</div>
                                 <div class="w-16 bg-gray-100 h-1.5 rounded-full mt-1 overflow-hidden">
-                                    <div class="bg-primary h-full" style="width: ${store.data.progress.tenses[tense.id] || 0}%"></div>
+                                    <div class="${mode === 'tenses' ? 'bg-primary' : 'bg-secondary'} h-full" style="width: ${progressData[item.id] || 0}%"></div>
                                 </div>
                             </div>
                         </div>
@@ -308,15 +354,84 @@ class App {
         `;
     }
 
-    async renderTenseDetail(id) {
-        const tense = tenses[id];
-        if (!tense) return this.navigate('learn');
+    async renderActivePassiveDetail(id) {
+        const item = activePassive[id];
+        if (!item) return this.navigate('learn-ap');
 
         this.container.innerHTML = `
             <div class="flex flex-col min-h-screen bg-soft-gray animate-fade-in pb-24">
                 <div class="bg-white p-4 flex items-center justify-between shadow-sm sticky top-0 z-10">
                     <div class="flex items-center space-x-4">
-                        <button onclick="app.navigate('learn')" class="p-2 -ml-2 text-xl">←</button>
+                        <button onclick="app.navigate('learn-ap')" class="p-2 -ml-2 text-xl">←</button>
+                        <div>
+                            <h2 class="text-lg font-bold leading-none">${item.name} Voice</h2>
+                            <p class="text-xs text-gray-500">Active to Passive Conversion</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-4 space-y-6 overflow-y-auto">
+                    <!-- Formulas -->
+                    <div class="space-y-4 animate-slide-up">
+                        <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+                            <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Active Formula</h3>
+                            <p class="text-xl font-bold text-gray-800">${item.activeFormula}</p>
+                        </div>
+                        <div class="bg-white p-6 rounded-3xl shadow-sm border border-secondary/20 border-2">
+                            <h3 class="text-xs font-bold text-secondary uppercase tracking-wider mb-2">Passive Formula</h3>
+                            <p class="text-xl font-bold text-secondary">${item.passiveFormula}</p>
+                        </div>
+                    </div>
+
+                    <!-- Rules -->
+                    <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 animate-fade-in">
+                        <h4 class="font-bold mb-3">Key Rules / ضروری اصول</h4>
+                        <p class="text-gray-700 leading-relaxed mb-4">${item.rules.english}</p>
+                        <p class="text-gray-800 font-urdu border-t pt-4">${item.rules.urdu}</p>
+                    </div>
+
+                    <!-- Examples -->
+                    <div class="space-y-4 animate-fade-in">
+                        <h4 class="font-bold px-2">Examples / مثالیں</h4>
+                        ${item.examples.map((ex, idx) => `
+                            <div class="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 space-y-3">
+                                <div class="flex justify-between items-start">
+                                    <div>
+                                        <p class="text-xs font-bold text-gray-400 uppercase">Active</p>
+                                        <p class="font-bold text-gray-800">${ex.active}</p>
+                                    </div>
+                                </div>
+                                <div class="flex justify-between items-start pt-3 border-t border-gray-50">
+                                    <div>
+                                        <p class="text-xs font-bold text-secondary uppercase">Passive</p>
+                                        <p class="font-bold text-secondary">${ex.passive}</p>
+                                    </div>
+                                </div>
+                                <p class="text-sm text-gray-500 font-urdu text-right">${ex.urdu}</p>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <div class="fixed bottom-24 left-4 right-4 animate-slide-up">
+                    <button onclick="app.startGame('${id}', 'activePassive')" class="w-full bg-secondary text-white font-bold py-4 rounded-3xl shadow-lg active:scale-95 transition">
+                        Practice with game
+                    </button>
+                </div>
+
+                ${this.getBottomNav()}
+            </div>
+        `;
+    }
+    async renderTenseDetail(id) {
+        const tense = tenses[id];
+        if (!tense) return this.navigate('learn-tenses');
+
+        this.container.innerHTML = `
+            <div class="flex flex-col min-h-screen bg-soft-gray animate-fade-in pb-24">
+                <div class="bg-white p-4 flex items-center justify-between shadow-sm sticky top-0 z-10">
+                    <div class="flex items-center space-x-4">
+                        <button onclick="app.navigate('learn-tenses')" class="p-2 -ml-2 text-xl">←</button>
                         <div>
                             <h2 class="text-lg font-bold leading-none">${tense.name}</h2>
                             <p class="text-xs text-gray-500">${tense.urduName}</p>
@@ -352,8 +467,8 @@ class App {
                 </div>
 
                 <div class="fixed bottom-24 left-4 right-4 animate-slide-up">
-                    <button onclick="app.navigate('game', {id: '${id}'})" class="w-full bg-secondary text-white font-bold py-4 rounded-3xl shadow-lg active:scale-95 transition">
-                        Practice Game / گیم کھیلیں
+                    <button onclick="app.startGame('${id}', 'tenses')" class="w-full bg-secondary text-white font-bold py-4 rounded-3xl shadow-lg active:scale-95 transition">
+                        Practice with game
                     </button>
                 </div>
 
@@ -395,7 +510,6 @@ class App {
                                 <p class="font-bold text-gray-800">${ex.english}</p>
                                 <p class="text-sm text-gray-600 font-urdu mt-1">${ex.urdu}</p>
                             </div>
-                            <button onclick="app.speak('${ex.english.replace(/'/g, "\\'")}')" class="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-xl active:scale-90 transition">🔊</button>
                         </div>
                     `).join('')}
                 </div>
@@ -403,29 +517,29 @@ class App {
         }
     }
 
-    speak(text) {
-        if (!text) return;
-        const synth = window.speechSynthesis;
-        synth.cancel(); // Abort previous speech to avoid hangs
-        const utter = new SpeechSynthesisUtterance(text);
-        utter.rate = 0.9;
-        synth.speak(utter);
-    }
+    async startGame(tenseId, mode = 'tenses') {
+        let pool = mode === 'tenses' ? questions : apQuestions;
+        let tenseQuestions = [...(pool[tenseId] || [])];
 
-    async startGame(tenseId) {
-        let tenseQuestions = [...(questions[tenseId] || [])];
-
-        // Dynamically add questions from examples to increase variety
-        const dynamicQuestions = this.generateDynamicQuestions(tenseId);
-        tenseQuestions = [...tenseQuestions, ...dynamicQuestions];
+        // Dynamically add questions from examples to increase variety if in tenses mode
+        if (mode === 'tenses') {
+            const dynamicQuestions = this.generateDynamicQuestions(tenseId);
+            tenseQuestions = [...tenseQuestions, ...dynamicQuestions];
+        } else {
+            // For AP, we can also generate dynamic questions from activePassive examples
+            const dynamicQuestions = this.generateAPDynamicQuestions(tenseId);
+            tenseQuestions = [...tenseQuestions, ...dynamicQuestions];
+        }
 
         if (tenseQuestions.length === 0) {
-            alert('No questions available for this tense yet!');
-            return this.navigate('tense-detail', { id: tenseId });
+            alert('No questions available for this module yet!');
+            const route = mode === 'tenses' ? 'tense-detail' : 'ap-detail';
+            return this.navigate(route, { id: tenseId });
         }
 
         this.gameState = {
             isTest: false,
+            mode,
             tenseId,
             questions: tenseQuestions.sort(() => Math.random() - 0.5),
             currentIndex: 0,
@@ -463,6 +577,42 @@ class App {
         });
     }
 
+    generateAPDynamicQuestions(tenseId) {
+        const data = activePassive[tenseId];
+        if (!data || !data.examples) return [];
+
+        return data.examples.map((ex, index) => {
+            return {
+                id: `ap_dynamic_${tenseId}_${index}`,
+                type: 'mcq',
+                question: `Change to Passive: "${ex.active}"`,
+                options: this.generateAPOptions(ex.passive, tenseId),
+                answer: ex.passive,
+                urdu: ex.urdu,
+                isDynamic: true
+            };
+        });
+    }
+
+    generateAPOptions(correctAnswer, tenseId) {
+        const options = [correctAnswer];
+        const otherExamples = Object.values(activePassive)
+            .flatMap(t => t.examples)
+            .filter(ex => ex.passive !== correctAnswer);
+
+        const distractors = [...otherExamples]
+            .sort(() => Math.random() - 0.5)
+            .slice(0, 3)
+            .map(ex => ex.passive);
+
+        const finalOptions = Array.from(new Set([...options, ...distractors]));
+        while (finalOptions.length < 4) {
+            const extra = 'The work is done.';
+            if (!finalOptions.includes(extra)) finalOptions.push(extra);
+        }
+        return finalOptions.sort(() => Math.random() - 0.5);
+    }
+
     generateOptions(correctAnswer, tenseId) {
         const options = [correctAnswer];
         const otherExamples = Object.values(tenses)
@@ -489,30 +639,37 @@ class App {
         return finalOptions.sort(() => Math.random() - 0.5);
     }
 
-    async startTest() {
-        // Collect all questions from all tenses for a comprehensive test
+    async startTest(mode = 'tenses') {
         let allQuestions = [];
-        Object.keys(tenses).forEach(tenseId => {
-            const q = questions[tenseId] || [];
-            const dq = this.generateDynamicQuestions(tenseId);
-            allQuestions = [...allQuestions, ...q, ...dq];
-        });
+        if (mode === 'tenses') {
+            Object.keys(tenses).forEach(tenseId => {
+                const q = questions[tenseId] || [];
+                const dq = this.generateDynamicQuestions(tenseId);
+                allQuestions = [...allQuestions, ...q, ...dq];
+            });
+        } else {
+            Object.keys(activePassive).forEach(tenseId => {
+                const q = apQuestions[tenseId] || [];
+                const dq = this.generateAPDynamicQuestions(tenseId);
+                allQuestions = [...allQuestions, ...q, ...dq];
+            });
+        }
 
         if (allQuestions.length === 0) {
-            alert('Learn some tenses first to start a test!');
+            alert('Learn some topics first to start a test!');
             return;
         }
 
-        // Shuffle and take top 10 for a quick test
         const testPool = allQuestions.sort(() => Math.random() - 0.5).slice(0, 10);
 
         this.gameState = {
             isTest: true,
-            tenseId: 'Mixed Test',
+            mode: mode,
+            tenseId: mode === 'tenses' ? 'Mixed Tense Test' : 'Mixed Voice Test',
             questions: testPool,
             currentIndex: 0,
             score: 0,
-            lives: Infinity, // No lives limit in test mode
+            lives: Infinity,
             xpEarned: 0,
             scrambledWords: [],
             userWords: [],
@@ -570,7 +727,7 @@ class App {
                 <div class="flex flex-col min-h-screen bg-white animate-fade-in">
                     <!-- Game Header -->
                     <div class="p-4 flex items-center justify-between">
-                        <button onclick="app.navigate(app.gameState.isTest ? 'test' : 'tense-detail', {id: '${this.gameState.tenseId}'})" class="text-2xl p-2">✕</button>
+                        <button onclick="app.navigate(app.gameState.isTest ? 'test' : (app.gameState.mode === 'tenses' ? 'tense-detail' : 'ap-detail'), {id: '${this.gameState.tenseId}'})" class="text-2xl p-2">✕</button>
                         <div class="flex-1 mx-4">
                             <div class="w-full bg-gray-100 h-3 rounded-full overflow-hidden">
                                 <div class="bg-success h-full transition-all duration-500" style="width: ${progress}%"></div>
@@ -589,7 +746,6 @@ class App {
                         <p class="text-gray-400 text-sm font-bold mb-2 uppercase tracking-widest">Question ${this.gameState.currentIndex + 1} of ${this.gameState.questions.length}</p>
                         <h2 class="text-2xl font-bold mb-4">${q.question || q.sentence || 'Practice Time!'}</h2>
                         ${q.urdu ? `<p class="text-gray-500 font-urdu border-t pt-4 w-full">${q.urdu}</p>` : ''}
-                        <button id="speak-btn" class="mt-4 w-12 h-12 rounded-full bg-primary/5 flex items-center justify-center text-xl">🔊</button>
                     </div>
 
                     <!-- Answer Options -->
@@ -600,8 +756,6 @@ class App {
             `;
 
             // Attach listeners
-            const speakBtn = document.getElementById('speak-btn');
-            if (speakBtn) speakBtn.onclick = () => this.speak(q.question || q.sentence || '');
 
             if (q.type === 'fill') {
                 const input = document.getElementById('fill-answer');
@@ -714,11 +868,26 @@ class App {
             store.addXP(this.gameState.xpEarned);
         }
 
+        if (this.gameState.isTest && completed) {
+            // Save daily test record
+            store.data.user.lastTestTime = Date.now();
+            store.save();
+        }
+
         if (!this.gameState.isTest) {
             const masteryBoost = completed ? 20 : 0;
-            const currentProgress = store.data.progress.tenses[this.gameState.tenseId] || 0;
-            store.updateProgress('tenses', this.gameState.tenseId, Math.min(100, currentProgress + masteryBoost));
+            const mode = this.gameState.mode || 'tenses';
+
+            // Safety check for progress structure
+            if (store.data.progress[mode]) {
+                const currentProgress = store.data.progress[mode][this.gameState.tenseId] || 0;
+                store.updateProgress(mode, this.gameState.tenseId, Math.min(100, currentProgress + masteryBoost));
+            } else {
+                console.warn(`Progress category ${mode} not found in store.`);
+            }
         }
+
+        const backRoute = this.gameState.isTest ? 'test' : (this.gameState.mode === 'tenses' ? 'learn-tenses' : 'learn-ap');
 
         this.container.innerHTML = `
             <div class="flex flex-col min-h-screen bg-white animate-fade-in p-6 items-center justify-center text-center">
@@ -739,7 +908,7 @@ class App {
 
                 <div class="w-full space-y-3 animate-slide-up" style="animation-delay: 0.4s">
                     <button onclick="app.navigate('home')" class="w-full bg-primary text-white font-bold py-4 rounded-2xl shadow-lg active:scale-95 transition">Back to Home</button>
-                    <button onclick="app.navigate('${this.gameState.isTest ? 'test' : 'learn'}')" class="w-full border-2 border-gray-100 text-gray-400 font-bold py-4 rounded-2xl active:scale-95 transition">Return to Section</button>
+                    <button onclick="app.navigate('${backRoute}')" class="w-full border-2 border-gray-100 text-gray-400 font-bold py-4 rounded-2xl active:scale-95 transition">Return to Section</button>
                 </div>
             </div>
         `;
@@ -807,33 +976,71 @@ class App {
     }
 
     async renderTest() {
+        const lastTestTime = store.data.user.lastTestTime || 0;
+        const now = Date.now();
+        const cooldown = 24 * 60 * 60 * 1000;
+        const timeLeft = cooldown - (now - lastTestTime);
+
+        if (timeLeft > 0) {
+            const hours = Math.floor(timeLeft / (1000 * 60 * 60));
+            const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+
+            this.container.innerHTML = `
+                <div class="flex flex-col min-h-screen bg-soft-gray animate-fade-in pb-24">
+                    <div class="bg-white p-4 shadow-sm sticky top-0 z-10 text-center">
+                        <button onclick="app.navigate('home')" class="absolute left-4 top-4 p-2 text-xl">←</button>
+                        <h2 class="text-xl font-bold">Daily Test</h2>
+                    </div>
+
+                    <div class="p-6 flex-1 flex flex-col items-center justify-center text-center">
+                        <div class="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center text-gray-400 text-4xl mb-6">🔒</div>
+                        <h3 class="text-2xl font-bold mb-2">Test Locked</h3>
+                        <p class="text-gray-500 mb-8 px-6">You have already taken your daily test. Next test available in:</p>
+                        
+                        <div class="bg-white p-6 rounded-[32px] shadow-sm border border-gray-100">
+                            <span class="text-3xl font-bold text-primary">${hours}h ${minutes}m</span>
+                        </div>
+                    </div>
+
+                    ${this.getBottomNav()}
+                </div>
+            `;
+            return;
+        }
+
         this.container.innerHTML = `
             <div class="flex flex-col min-h-screen bg-soft-gray animate-fade-in pb-24">
                 <div class="bg-white p-4 shadow-sm sticky top-0 z-10 text-center">
-                    <h2 class="text-xl font-bold">Daily Test</h2>
+                    <button onclick="app.navigate('home')" class="absolute left-4 top-4 p-2 text-xl">←</button>
+                    <h2 class="text-xl font-bold">Daily Test / ڈیلی ٹیسٹ</h2>
                 </div>
 
-                <div class="p-6 flex-1 flex flex-col items-center justify-center text-center">
-                    <div class="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center text-primary text-4xl mb-6">📝</div>
-                    <h3 class="text-2xl font-bold mb-2">Ready for Daily Test?</h3>
-                    <p class="text-gray-500 mb-8 px-6">Mixed random questions from all tenses. No hints allowed!</p>
-                    
-                    <div class="w-full space-y-4">
-                        <div class="bg-white p-4 rounded-3xl flex items-center justify-between border border-gray-100">
-                            <span class="text-gray-500">Number of Questions</span>
-                            <span class="font-bold">5</span>
-                        </div>
-                        <div class="bg-white p-4 rounded-3xl flex items-center justify-between border border-gray-100">
-                            <span class="text-gray-500">Reward</span>
-                            <span class="font-bold text-success">+100 XP</span>
-                        </div>
+                <div class="p-6 space-y-6">
+                    <div class="text-center mb-8">
+                        <div class="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center text-primary text-3xl mx-auto mb-4">📝</div>
+                        <h3 class="text-2xl font-bold">Select Test Mode</h3>
+                        <p class="text-gray-500">Pick a category for your daily challenge</p>
                     </div>
-                </div>
 
-                <div class="p-6">
-                    <button onclick="app.startTest()" class="w-full bg-primary text-white font-bold py-5 rounded-3xl shadow-lg active:scale-95 transition text-lg">
-                        START TEST / ٹیسٹ شروع کریں
+                    <button onclick="app.startTest('tenses')" class="w-full bg-white p-6 rounded-[32px] shadow-sm border-2 border-primary/5 hover:border-primary/20 flex items-center space-x-4 active:scale-95 transition-all text-left group">
+                        <div class="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center text-2xl group-hover:scale-110 transition">📚</div>
+                        <div class="flex-1">
+                            <h4 class="font-bold text-gray-800 text-lg">Tenses Test</h4>
+                            <p class="text-gray-500 text-sm">Mixed questions from all tenses</p>
+                        </div>
+                        <span class="text-primary text-xl">→</span>
                     </button>
+
+                    <button onclick="app.startTest('activePassive')" class="w-full bg-white p-6 rounded-[32px] shadow-sm border-2 border-secondary/5 hover:border-secondary/20 flex items-center space-x-4 active:scale-95 transition-all text-left group">
+                        <div class="w-14 h-14 bg-secondary/10 rounded-2xl flex items-center justify-center text-2xl group-hover:scale-110 transition">🔄</div>
+                        <div class="flex-1">
+                            <h4 class="font-bold text-gray-800 text-lg">Voice Test</h4>
+                            <p class="text-gray-500 text-sm">Active & Passive Voice conversion</p>
+                        </div>
+                        <span class="text-secondary text-xl">→</span>
+                    </button>
+                    
+                    <p class="text-center text-gray-400 text-xs mt-8">Note: You can take only one test every 24 hours.</p>
                 </div>
 
                 ${this.getBottomNav()}

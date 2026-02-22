@@ -25,7 +25,8 @@ const INITIAL_DATA = {
         badges: [],
         coins: 0,
         hearts: 5,
-        lastHeartRegen: Date.now()
+        lastHeartRegen: Date.now(),
+        lastTestTime: 0
     },
     progress: {
         tenses: {
@@ -41,6 +42,16 @@ const INITIAL_DATA = {
             futureContinuous: 0,
             futurePerfect: 0,
             futurePerfectContinuous: 0
+        },
+        activePassive: {
+            simplePresent: 0,
+            presentContinuous: 0,
+            presentPerfect: 0,
+            simplePast: 0,
+            pastContinuous: 0,
+            pastPerfect: 0,
+            simpleFuture: 0,
+            futurePerfect: 0
         },
         modules: {
             vocabulary: 0,
@@ -70,8 +81,17 @@ class Store {
 
         try {
             const parsed = JSON.parse(saved);
-            // Merge with default to handle schema updates
-            return { ...INITIAL_DATA, ...parsed, user: { ...INITIAL_DATA.user, ...parsed.user } };
+            // Deep merge user and progress to handle schema updates
+            return {
+                ...INITIAL_DATA,
+                ...parsed,
+                user: { ...INITIAL_DATA.user, ...parsed.user },
+                progress: {
+                    tenses: { ...INITIAL_DATA.progress.tenses, ...(parsed.progress?.tenses || {}) },
+                    activePassive: { ...INITIAL_DATA.progress.activePassive, ...(parsed.progress?.activePassive || {}) },
+                    modules: { ...INITIAL_DATA.progress.modules, ...(parsed.progress?.modules || {}) }
+                }
+            };
         } catch (e) {
             console.error('Failed to parse saved data', e);
             return INITIAL_DATA;
