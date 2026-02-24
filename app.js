@@ -150,10 +150,10 @@ class App {
                     await this.renderActivePassiveDetail(params.id);
                     break;
                 case 'game':
-                    await this.startGame(params.id);
+                    await this.showDifficultySelection(params.id, params.mode || 'tenses');
                     break;
                 case 'test':
-                    await this.renderTest();
+                    await this.renderTestSelection();
                     break;
                 case 'profile':
                     await this.renderProfile();
@@ -414,7 +414,7 @@ class App {
                 </div>
 
                 <div class="fixed bottom-24 left-4 right-4 animate-slide-up">
-                    <button onclick="app.startGame('${id}', 'activePassive')" class="w-full bg-secondary text-white font-bold py-4 rounded-3xl shadow-lg active:scale-95 transition">
+                    <button onclick="app.showDifficultySelection('${id}', 'activePassive')" class="w-full bg-secondary text-white font-bold py-4 rounded-3xl shadow-lg active:scale-95 transition">
                         Practice with game
                     </button>
                 </div>
@@ -467,7 +467,7 @@ class App {
                 </div>
 
                 <div class="fixed bottom-24 left-4 right-4 animate-slide-up">
-                    <button onclick="app.startGame('${id}', 'tenses')" class="w-full bg-secondary text-white font-bold py-4 rounded-3xl shadow-lg active:scale-95 transition">
+                    <button onclick="app.showDifficultySelection('${id}', 'tenses')" class="w-full bg-secondary text-white font-bold py-4 rounded-3xl shadow-lg active:scale-95 transition">
                         Practice with game
                     </button>
                 </div>
@@ -517,17 +517,98 @@ class App {
         }
     }
 
-    async startGame(tenseId, mode = 'tenses') {
+    async showDifficultySelection(id, mode = 'tenses', isTest = false) {
+        const overlay = document.createElement('div');
+        overlay.id = 'difficulty-overlay';
+        overlay.className = 'fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fade-in';
+
+        const title = isTest ? 'Daily Test Challenge' : 'Select Difficulty';
+        const subtitle = isTest ? 'روزانہ ٹیسٹ کی مشکل کا انتخاب کریں' : 'مشکل کا انتخاب کریں';
+
+        overlay.innerHTML = `
+            <div class="w-full max-w-sm bg-white rounded-[40px] overflow-hidden shadow-2xl animate-bounce-in relative">
+                <!-- Header with pattern -->
+                <div class="bg-primary/5 p-8 pb-12 text-center relative overflow-hidden">
+                    <div class="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full -mr-16 -mt-16"></div>
+                    <div class="absolute bottom-0 left-0 w-24 h-24 bg-secondary/10 rounded-full -ml-12 -mb-12"></div>
+                    
+                    <div class="relative z-10">
+                        <div class="w-20 h-20 bg-white rounded-3xl shadow-lg flex items-center justify-center text-primary text-4xl mx-auto mb-4 animate-float">🎮</div>
+                        <h3 class="text-2xl font-bold text-gray-800 mb-1">${title}</h3>
+                        <p class="text-gray-500 font-urdu text-sm">${subtitle}</p>
+                    </div>
+                </div>
+
+                <!-- Options -->
+                <div class="px-6 py-6 space-y-3 -mt-6 relative z-20">
+                    <!-- Easy -->
+                    <button onclick="document.getElementById('difficulty-overlay').remove(); app.${isTest ? 'startTest' : 'startGame'}('${id}', '${mode}', 'easy')" 
+                        class="w-full p-4 rounded-[2.5rem] bg-white border-2 border-gray-50 hover:border-green-400 hover:bg-green-50/50 flex items-center space-x-4 group transition-all duration-300 shadow-sm hover:shadow-md active:scale-95">
+                        <div class="w-14 h-14 bg-green-100 rounded-2xl flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">🌱</div>
+                        <div class="flex-1 text-left">
+                            <div class="flex items-center justify-between">
+                                <span class="font-bold text-gray-800 text-lg">Easy</span>
+                                <span class="text-xs text-green-600 font-urdu">آسان</span>
+                            </div>
+                            <p class="text-[10px] text-gray-400 font-medium">Basic concepts & simple sentences</p>
+                        </div>
+                    </button>
+
+                    <!-- Medium -->
+                    <button onclick="document.getElementById('difficulty-overlay').remove(); app.${isTest ? 'startTest' : 'startGame'}('${id}', '${mode}', 'medium')" 
+                        class="w-full p-4 rounded-[2.5rem] bg-white border-2 border-gray-50 hover:border-orange-400 hover:bg-orange-50/50 flex items-center space-x-4 group transition-all duration-300 shadow-sm hover:shadow-md active:scale-95">
+                        <div class="w-14 h-14 bg-orange-100 rounded-2xl flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">⚡</div>
+                        <div class="flex-1 text-left">
+                            <div class="flex items-center justify-between">
+                                <span class="font-bold text-gray-800 text-lg">Medium</span>
+                                <span class="text-xs text-orange-600 font-urdu">درمیانہ</span>
+                            </div>
+                            <p class="text-[10px] text-gray-400 font-medium">Moderate speed & word scrambling</p>
+                        </div>
+                    </button>
+
+                    <!-- Hard -->
+                    <button onclick="document.getElementById('difficulty-overlay').remove(); app.${isTest ? 'startTest' : 'startGame'}('${id}', '${mode}', 'hard')" 
+                        class="w-full p-4 rounded-[2.5rem] bg-white border-2 border-gray-50 hover:border-red-400 hover:bg-red-50/50 flex items-center space-x-4 group transition-all duration-300 shadow-sm hover:shadow-md active:scale-95">
+                        <div class="w-14 h-14 bg-red-100 rounded-2xl flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">🔥</div>
+                        <div class="flex-1 text-left">
+                            <div class="flex items-center justify-between">
+                                <span class="font-bold text-gray-800 text-lg">Hard</span>
+                                <span class="text-xs text-red-600 font-urdu">مشکل</span>
+                            </div>
+                            <p class="text-[10px] text-gray-400 font-medium">Advanced grammar & Verb Race!</p>
+                        </div>
+                    </button>
+                    
+                    <button onclick="document.getElementById('difficulty-overlay').remove()" 
+                        class="w-full text-gray-400 font-bold py-3 hover:text-gray-600 transition-colors text-sm">
+                        Cancel / منسوخ کریں
+                    </button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+    }
+
+    async startGame(tenseId, mode = 'tenses', difficulty = 'easy') {
         let pool = mode === 'tenses' ? questions : apQuestions;
         let tenseQuestions = [...(pool[tenseId] || [])];
 
+        // Filter by difficulty
+        tenseQuestions = tenseQuestions.filter(q => q.difficulty === difficulty);
+
+        // If no questions for this difficulty, fall back to any available or dynamic
+        if (tenseQuestions.length === 0) {
+            tenseQuestions = [...(pool[tenseId] || [])];
+        }
+
         // Dynamically add questions from examples to increase variety if in tenses mode
         if (mode === 'tenses') {
-            const dynamicQuestions = this.generateDynamicQuestions(tenseId);
+            const dynamicQuestions = this.generateDynamicQuestions(tenseId, difficulty);
             tenseQuestions = [...tenseQuestions, ...dynamicQuestions];
         } else {
             // For AP, we can also generate dynamic questions from activePassive examples
-            const dynamicQuestions = this.generateAPDynamicQuestions(tenseId);
+            const dynamicQuestions = this.generateAPDynamicQuestions(tenseId, difficulty);
             tenseQuestions = [...tenseQuestions, ...dynamicQuestions];
         }
 
@@ -541,6 +622,7 @@ class App {
             isTest: false,
             mode,
             tenseId,
+            difficulty,
             questions: tenseQuestions.sort(() => Math.random() - 0.5),
             currentIndex: 0,
             score: 0,
@@ -560,14 +642,35 @@ class App {
         this.renderQuestion();
     }
 
-    generateDynamicQuestions(tenseId) {
+    generateDynamicQuestions(tenseId, difficulty = 'easy') {
         const tenseData = tenses[tenseId];
         if (!tenseData || !tenseData.examples) return [];
 
-        return tenseData.examples.map((ex, index) => {
+        // In a real app we might vary the type based on difficulty
+        const count = difficulty === 'hard' ? 5 : (difficulty === 'medium' ? 3 : 2);
+
+        // Add a new game type: Verb Race (for all dynamic questions now)
+        return tenseData.examples.slice(0, count).map((ex, index) => {
+            const type = (difficulty === 'hard' || Math.random() > 0.5) ? 'verb_race' : 'mcq';
+
+            if (type === 'verb_race') {
+                return {
+                    id: `race_${tenseId}_${index}`,
+                    type: 'verb_race',
+                    difficulty: difficulty,
+                    baseVerb: this.extractBaseVerb(ex.english),
+                    targetTense: tenseData.name,
+                    answer: ex.english,
+                    options: this.generateOptions(ex.english, tenseId),
+                    urdu: ex.urdu,
+                    isDynamic: true
+                };
+            }
+
             return {
                 id: `dynamic_${tenseId}_${index}`,
                 type: 'mcq',
+                difficulty: difficulty,
                 question: `Complete the sentence: "${ex.urdu}"`,
                 options: this.generateOptions(ex.english, tenseId),
                 answer: ex.english,
@@ -577,14 +680,23 @@ class App {
         });
     }
 
-    generateAPDynamicQuestions(tenseId) {
+    extractBaseVerb(sentence) {
+        // Simple extraction for demo: return first verb-like word
+        const words = sentence.split(' ');
+        return words[1] || words[0]; // He goes -> goes
+    }
+
+    generateAPDynamicQuestions(tenseId, difficulty = 'easy') {
         const data = activePassive[tenseId];
         if (!data || !data.examples) return [];
 
-        return data.examples.map((ex, index) => {
+        const count = difficulty === 'hard' ? 4 : 2;
+
+        return data.examples.slice(0, count).map((ex, index) => {
             return {
                 id: `ap_dynamic_${tenseId}_${index}`,
                 type: 'mcq',
+                difficulty: difficulty,
                 question: `Change to Passive: "${ex.active}"`,
                 options: this.generateAPOptions(ex.passive, tenseId),
                 answer: ex.passive,
@@ -639,24 +751,24 @@ class App {
         return finalOptions.sort(() => Math.random() - 0.5);
     }
 
-    async startTest(mode = 'tenses') {
+    async startTest(mode = 'tenses', difficulty = 'easy') {
         let allQuestions = [];
         if (mode === 'tenses') {
             Object.keys(tenses).forEach(tenseId => {
-                const q = questions[tenseId] || [];
-                const dq = this.generateDynamicQuestions(tenseId);
+                const q = (questions[tenseId] || []).filter(item => item.difficulty === difficulty);
+                const dq = this.generateDynamicQuestions(tenseId, difficulty);
                 allQuestions = [...allQuestions, ...q, ...dq];
             });
         } else {
             Object.keys(activePassive).forEach(tenseId => {
-                const q = apQuestions[tenseId] || [];
-                const dq = this.generateAPDynamicQuestions(tenseId);
+                const q = (apQuestions[tenseId] || []).filter(item => item.difficulty === difficulty);
+                const dq = this.generateAPDynamicQuestions(tenseId, difficulty);
                 allQuestions = [...allQuestions, ...q, ...dq];
             });
         }
 
         if (allQuestions.length === 0) {
-            alert('Learn some topics first to start a test!');
+            alert('No questions found for this difficulty level!');
             return;
         }
 
@@ -665,6 +777,7 @@ class App {
         this.gameState = {
             isTest: true,
             mode: mode,
+            difficulty,
             tenseId: mode === 'tenses' ? 'Mixed Tense Test' : 'Mixed Voice Test',
             questions: testPool,
             currentIndex: 0,
@@ -702,6 +815,8 @@ class App {
 
             // PRE-RENDER content to variable to ensure we don't clear container if render logic fails
             let questionContent = '';
+            let extraQuestionUI = '';
+
             if (q.type === 'mcq') {
                 questionContent = q.options.map((opt, idx) => `
                     <button onclick="app.handleMCQClick(this)" data-answer="${String(opt).replace(/"/g, "&quot;")}" 
@@ -714,6 +829,14 @@ class App {
                 questionContent = this.renderScramble(q);
             } else if (q.type === 'match_pairs') {
                 questionContent = this.renderMatchPairs(q);
+            } else if (q.type === 'verb_race') {
+                questionContent = this.renderVerbRace(q);
+                extraQuestionUI = `
+                    <div class="mt-4 flex flex-col items-center">
+                        <span class="text-xs font-bold text-gray-400 mb-1">BASE VERB</span>
+                        <div class="bg-primary/10 text-primary px-6 py-2 rounded-full font-bold text-xl">${q.baseVerb}</div>
+                    </div>
+                `;
             } else {
                 questionContent = `
                     <div class="space-y-4">
@@ -724,7 +847,14 @@ class App {
             }
 
             this.container.innerHTML = `
-                <div class="flex flex-col min-h-screen bg-white animate-fade-in">
+                <div class="flex flex-col min-h-screen bg-white animate-fade-in relative">
+                    <!-- Difficulty Badge -->
+                    <div class="absolute top-20 right-4 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${this.gameState.difficulty === 'easy' ? 'bg-green-100 text-green-600' :
+                    this.gameState.difficulty === 'medium' ? 'bg-orange-100 text-orange-600' : 'bg-red-100 text-red-600'
+                }">
+                        ${this.gameState.difficulty}
+                    </div>
+
                     <!-- Game Header -->
                     <div class="p-4 flex items-center justify-between">
                         <button onclick="app.navigate(app.gameState.isTest ? 'test' : (app.gameState.mode === 'tenses' ? 'tense-detail' : 'ap-detail'), {id: '${this.gameState.tenseId}'})" class="text-2xl p-2">✕</button>
@@ -744,8 +874,9 @@ class App {
                     <!-- Question Area -->
                     <div class="flex-1 p-6 flex flex-col items-center justify-center text-center">
                         <p class="text-gray-400 text-sm font-bold mb-2 uppercase tracking-widest">Question ${this.gameState.currentIndex + 1} of ${this.gameState.questions.length}</p>
-                        <h2 class="text-2xl font-bold mb-4">${q.question || q.sentence || 'Practice Time!'}</h2>
-                        ${q.urdu ? `<p class="text-gray-500 font-urdu border-t pt-4 w-full">${q.urdu}</p>` : ''}
+                        <h2 class="text-2xl font-bold mb-2">${q.question || q.targetTense || 'Practice Time!'}</h2>
+                        ${extraQuestionUI}
+                        ${q.urdu ? `<p class="text-gray-500 font-urdu border-t pt-4 w-full mt-4">${q.urdu}</p>` : ''}
                     </div>
 
                     <!-- Answer Options -->
@@ -784,7 +915,7 @@ class App {
             });
 
             let isCorrect = false;
-            if (q.type === 'mcq' || q.type === 'fill') {
+            if (q.type === 'mcq' || q.type === 'fill' || q.type === 'verb_race') {
                 isCorrect = String(userAnswer || '').toLowerCase().trim() === String(q.answer).toLowerCase().trim();
             } else {
                 // For scramble/match, logic is handled in their specific check methods
@@ -975,7 +1106,7 @@ class App {
         `;
     }
 
-    async renderTest() {
+    async renderTestSelection() {
         const lastTestTime = store.data.user.lastTestTime || 0;
         const now = Date.now();
         const cooldown = 24 * 60 * 60 * 1000;
@@ -1022,7 +1153,7 @@ class App {
                         <p class="text-gray-500">Pick a category for your daily challenge</p>
                     </div>
 
-                    <button onclick="app.startTest('tenses')" class="w-full bg-white p-6 rounded-[32px] shadow-sm border-2 border-primary/5 hover:border-primary/20 flex items-center space-x-4 active:scale-95 transition-all text-left group">
+                    <button onclick="app.showDifficultySelection('tenses', 'tenses', true)" class="w-full bg-white p-6 rounded-[32px] shadow-sm border-2 border-primary/5 hover:border-primary/20 flex items-center space-x-4 active:scale-95 transition-all text-left group">
                         <div class="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center text-2xl group-hover:scale-110 transition">📚</div>
                         <div class="flex-1">
                             <h4 class="font-bold text-gray-800 text-lg">Tenses Test</h4>
@@ -1031,7 +1162,7 @@ class App {
                         <span class="text-primary text-xl">→</span>
                     </button>
 
-                    <button onclick="app.startTest('activePassive')" class="w-full bg-white p-6 rounded-[32px] shadow-sm border-2 border-secondary/5 hover:border-secondary/20 flex items-center space-x-4 active:scale-95 transition-all text-left group">
+                    <button onclick="app.showDifficultySelection('activePassive', 'activePassive', true)" class="w-full bg-white p-6 rounded-[32px] shadow-sm border-2 border-secondary/5 hover:border-secondary/20 flex items-center space-x-4 active:scale-95 transition-all text-left group">
                         <div class="w-14 h-14 bg-secondary/10 rounded-2xl flex items-center justify-center text-2xl group-hover:scale-110 transition">🔄</div>
                         <div class="flex-1">
                             <h4 class="font-bold text-gray-800 text-lg">Voice Test</h4>
@@ -1103,6 +1234,19 @@ class App {
                 ` : ''}
             </div>
         `;
+    }
+
+    renderVerbRace(q) {
+        return q.options.map((opt, idx) => `
+            <button onclick="app.handleMCQClick(this)" data-answer="${String(opt).replace(/"/g, "&quot;")}" 
+                    class="w-full p-5 rounded-[2rem] border-2 border-gray-100 hover:border-secondary hover:bg-secondary/5 text-lg font-bold transition active:scale-95 animate-slide-up bg-white group"
+                    style="animation-delay: ${idx * 0.1}s">
+                <div class="flex justify-between items-center">
+                    <span>${opt}</span>
+                    <span class="opacity-0 group-hover:opacity-100 transition-opacity">🏃‍♂️</span>
+                </div>
+            </button>
+        `).join('');
     }
 
     handleScrambleClick(index, isFromUser) {
