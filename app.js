@@ -9,6 +9,7 @@ import { questions } from './js/data/questions.js';
 import { badges } from './js/data/badges.js';
 import { activePassive } from './js/data/active_passive.js';
 import { apQuestions } from './js/data/ap_questions.js';
+import { shopItems } from './js/data/shop_items.js';
 
 class App {
     constructor() {
@@ -155,6 +156,12 @@ class App {
                 case 'test':
                     await this.renderTestSelection();
                     break;
+                case 'shop':
+                    await this.renderShop();
+                    break;
+                case 'leaderboard':
+                    await this.renderLeaderboard();
+                    break;
                 case 'profile':
                     await this.renderProfile();
                     break;
@@ -199,26 +206,30 @@ class App {
     }
 
     async renderHome() {
+        const userAvatar = shopItems.find(i => i.id === store.data.user.selectedAvatar) || shopItems[0];
+
         this.container.innerHTML = `
             <div class="flex flex-col min-h-screen bg-soft-gray animate-fade-in pb-24">
                 <!-- Header -->
-                <div class="bg-white p-4 flex items-center justify-between shadow-sm sticky top-0 z-10">
+                <div class="bg-white p-4 flex items-center justify-between shadow-sm sticky top-0 z-10 transition-all">
                     <div class="flex items-center space-x-3">
-                        <div class="w-10 h-10 bg-accent rounded-full flex items-center justify-center text-white font-bold animate-float shadow-inner">
-                            ${store.data.user.name[0].toUpperCase()}
+                        <div class="w-12 h-12 bg-primary/5 rounded-2xl flex items-center justify-center text-3xl font-bold animate-float shadow-inner">
+                            ${userAvatar.icon}
                         </div>
                         <div>
-                            <p class="text-xs text-gray-500">Welcome back,</p>
-                            <p class="font-bold text-gray-800">${store.data.user.name}</p>
+                            <p class="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Learner</p>
+                            <p class="font-bold text-gray-800">${store.data.user.name || 'Student'}</p>
                         </div>
                     </div>
-                    <div class="flex items-center space-x-4">
-                        <div class="flex items-center space-x-1">
-                            <span class="text-orange-500">🔥</span>
-                            <span class="font-bold">${store.data.user.streak}</span>
+                    <div class="flex items-center space-x-3">
+                        <!-- Coins Badge -->
+                        <div onclick="app.navigate('shop')" class="flex items-center space-x-1 bg-green-50 px-3 py-1.5 rounded-full border border-green-100 active:scale-95 transition cursor-pointer">
+                            <span class="text-xs">💰</span>
+                            <span class="font-bold text-green-600 text-sm">${store.data.user.coins}</span>
                         </div>
-                        <div class="flex items-center space-x-1">
-                            <span class="text-yellow-500 font-bold">Lvl ${store.data.user.level}</span>
+                        <div class="flex items-center space-x-1 bg-orange-50 px-3 py-1.5 rounded-full border border-orange-100">
+                            <span class="text-xs">🔥</span>
+                            <span class="font-bold text-orange-600 text-sm">${store.data.user.streak}</span>
                         </div>
                     </div>
                 </div>
@@ -628,6 +639,7 @@ class App {
             score: 0,
             lives: 5,
             xpEarned: 0,
+            coinsEarned: 0,
             scrambledWords: null,
             userWords: [],
             matchingData: {
@@ -923,9 +935,12 @@ class App {
             }
 
             if (isCorrect) {
+                const xp = this.gameState.isTest ? 20 : 10;
+                const coins = Math.floor(xp / 5);
                 this.gameState.score++;
-                this.gameState.xpEarned += (this.gameState.isTest ? 20 : 10);
-                this.showFeedback(true, typeof q.answer === 'string' ? q.answer : (Array.isArray(q.answer) ? q.answer.join(' ') : 'Correct!'));
+                this.gameState.xpEarned += xp;
+                this.gameState.coinsEarned = (this.gameState.coinsEarned || 0) + coins;
+                this.showFeedback(true, `+${xp} XP & +${coins} 💰`);
             } else {
                 if (!this.gameState.isTest) this.gameState.lives--;
                 const correctText = typeof q.answer === 'string' ? q.answer : (q.answer ? (Array.isArray(q.answer) ? q.answer.join(' ') : q.answer) : (q.sentence || 'Incorrect'));
@@ -954,7 +969,7 @@ class App {
                     </div>
                     <div>
                         <h3 class="text-xl font-bold text-white">${isCorrect ? 'Excellent!' : 'Correct Answer:'}</h3>
-                        <p class="font-bold opacity-90 text-white">${isCorrect ? (this.gameState.isTest ? '+20 XP' : '+10 XP') : correctAnswer}</p>
+                        <p class="font-bold opacity-90 text-white">${correctAnswer}</p>
                     </div>
                 </div>
                 <button id="next-q" class="w-full bg-white ${isCorrect ? 'text-success' : 'text-error'} font-bold py-4 rounded-2xl shadow-md active:scale-95 transition">
@@ -1035,6 +1050,10 @@ class App {
                         <span class="text-gray-500">XP Earned</span>
                         <span class="font-bold text-primary">+${this.gameState.xpEarned} XP</span>
                     </div>
+                    <div class="flex justify-between items-center text-sm border-t pt-4">
+                        <span class="text-gray-500">Coins Earned</span>
+                        <span class="font-bold text-green-600">+${this.gameState.coinsEarned || 0} 💰</span>
+                    </div>
                 </div>
 
                 <div class="w-full space-y-3 animate-slide-up" style="animation-delay: 0.4s">
@@ -1046,24 +1065,31 @@ class App {
     }
 
     async renderProfile() {
+        const userAvatar = shopItems.find(i => i.id === store.data.user.selectedAvatar) || shopItems[0];
+
         this.container.innerHTML = `
             <div class="flex flex-col min-h-screen bg-soft-gray animate-fade-in pb-24">
                 <!-- Profile Header -->
-                <div class="bg-primary pt-12 pb-24 px-6 relative">
-                    <div class="flex items-center space-x-4 text-white">
-                        <div class="w-20 h-20 bg-white rounded-3xl flex items-center justify-center text-primary text-3xl font-bold shadow-xl">
-                            ${store.data.user.name[0].toUpperCase()}
+                <div class="bg-primary pt-12 pb-24 px-6 relative overflow-hidden">
+                    <div class="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 animate-pulse-soft"></div>
+                    
+                    <div class="flex items-center space-x-4 text-white relative z-10">
+                        <div class="w-20 h-20 bg-white rounded-3xl flex items-center justify-center text-primary text-4xl font-bold shadow-xl animate-float">
+                            ${userAvatar.icon}
                         </div>
                         <div>
-                            <h2 class="text-2xl font-bold">${store.data.user.name}</h2>
+                            <h2 class="text-2xl font-bold flex items-center gap-2">
+                                ${store.data.user.name || 'Student'}
+                                ${store.data.user.purchasedItems.includes('pro_learner') ? '<span class="text-xs bg-yellow-400 text-black px-2 py-0.5 rounded-full">PRO</span>' : ''}
+                            </h2>
                             <p class="opacity-80">Level ${store.data.user.level} Learner</p>
                         </div>
                     </div>
                 </div>
 
                 <!-- Stats Cards -->
-                <div class="px-4 -mt-16 space-y-4 overflow-y-auto relative z-10">
-                    <div class="bg-white rounded-3xl p-6 shadow-lg grid grid-cols-2 gap-4">
+                <div class="px-4 -mt-16 space-y-4 overflow-y-auto relative z-10 pb-8">
+                    <div class="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 grid grid-cols-2 gap-4">
                         <div class="text-center p-3 rounded-2xl bg-primary/5">
                             <p class="text-xs text-gray-500 uppercase font-bold tracking-widest mb-1">Total XP</p>
                             <p class="text-xl font-bold text-primary">${store.data.user.xp}</p>
@@ -1082,7 +1108,7 @@ class App {
                         </div>
                     </div>
 
-                    <!-- Badges -->
+                    <!-- Achievements -->
                     <div class="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
                         <h3 class="font-bold mb-4">Achievements</h3>
                         <div class="grid grid-cols-3 gap-4">
@@ -1104,6 +1130,126 @@ class App {
                 ${this.getBottomNav()}
             </div>
         `;
+    }
+
+    async renderShop() {
+        this.container.innerHTML = `
+            <div class="flex flex-col min-h-screen bg-soft-gray animate-fade-in pb-24">
+                <!-- Shop Header -->
+                <div class="bg-white p-6 sticky top-0 z-50 flex items-center justify-between border-b border-gray-100">
+                    <div class="flex items-center space-x-3">
+                        <button onclick="app.navigate('profile')" class="p-2 -ml-2 text-xl hover:bg-gray-50 rounded-full transition">←</button>
+                        <h2 class="text-xl font-bold text-primary">Avatar Shop</h2>
+                    </div>
+                    <div class="flex items-center space-x-1 bg-green-50 px-3 py-1 rounded-full">
+                        <span class="text-green-600">💰</span>
+                        <span class="font-bold text-green-600">${store.data.user.coins}</span>
+                    </div>
+                </div>
+
+                <!-- Items Grid -->
+                <div class="p-4 space-y-6">
+                    <div class="grid grid-cols-2 gap-4">
+                        ${shopItems.map(item => {
+            const isOwned = store.data.user.purchasedItems.includes(item.id);
+            const isEquipped = store.data.user.selectedAvatar === item.id;
+
+            return `
+                                <div class="bg-white p-5 rounded-[2.5rem] border border-gray-100 shadow-sm flex flex-col items-center text-center animate-bounce-in">
+                                    <div class="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center text-4xl mb-4 shadow-inner">
+                                        ${item.icon}
+                                    </div>
+                                    <h3 class="font-bold text-gray-800 text-sm mb-1">${item.name}</h3>
+                                    <p class="text-[10px] text-gray-400 mb-4 line-clamp-1">${item.description}</p>
+                                    
+                                    ${isEquipped ? `
+                                        <button disabled class="w-full py-2 bg-gray-100 text-gray-400 rounded-full text-xs font-bold">EQUIPPED</button>
+                                    ` : isOwned ? `
+                                        <button onclick="app.equipItem('${item.id}')" class="w-full py-2 bg-primary/10 text-primary rounded-full text-xs font-bold hover:bg-primary/20 hover:scale-105 active:scale-95 transition">EQUIP</button>
+                                    ` : `
+                                        <button onclick="app.buyItem('${item.id}')" class="w-full py-2 bg-primary text-white rounded-full text-xs font-bold shadow-lg hover:shadow-primary/30 hover:scale-105 active:scale-95 transition">
+                                            ${item.price} 💰
+                                        </button>
+                                    `}
+                                </div>
+                            `;
+        }).join('')}
+                    </div>
+                </div>
+
+                ${this.getBottomNav()}
+            </div>
+        `;
+    }
+
+    async renderLeaderboard() {
+        // Build simulated leaderboard with user included
+        const user = { name: store.data.user.name || 'You', level: store.data.user.level, xp: store.data.user.xp, isUser: true };
+        const ranking = [...store.data.leaderboard, user].sort((a, b) => b.xp - a.xp);
+
+        this.container.innerHTML = `
+            <div class="flex flex-col min-h-screen bg-soft-gray animate-fade-in pb-24">
+                <!-- Ranking Header -->
+                <div class="bg-primary p-6 pt-12 pb-20 relative overflow-hidden">
+                    <div class="absolute inset-0 bg-white opacity-5" style="background-image: radial-gradient(#000 0.5px, transparent 0.5px); background-size: 10px 10px;"></div>
+                    <div class="flex items-center space-x-3 text-white relative z-10">
+                        <button onclick="app.navigate('profile')" class="p-2 -ml-2 text-xl hover:bg-white/10 rounded-full transition">←</button>
+                        <h2 class="text-2xl font-bold">Learner Ranking</h2>
+                    </div>
+                    <p class="text-white/60 mt-1 relative z-10">Compete with other tense masters!</p>
+                </div>
+
+                <!-- Leaderboard List -->
+                <div class="px-4 -mt-10 relative z-20 space-y-3 pb-8">
+                    ${ranking.map((player, index) => `
+                        <div class="flex items-center p-4 rounded-3xl bg-white ${player.isUser ? 'border-2 border-primary shadow-xl scale-102 ring-4 ring-primary/5' : 'border border-gray-50 shadow-sm'} transition-transform">
+                            <div class="w-8 font-black text-lg ${index === 0 ? 'text-yellow-400' : index === 1 ? 'text-gray-400' : index === 2 ? 'text-orange-400' : 'text-gray-300'}">
+                                #${index + 1}
+                            </div>
+                            <div class="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center text-xl mr-4 shadow-inner">
+                                ${player.isUser ? '👤' : (index === 0 ? '👑' : (index === 1 ? '🥈' : (index === 2 ? '🥉' : '👨‍🎓')))}
+                            </div>
+                            <div class="flex-1">
+                                <h4 class="font-bold text-gray-800 ${player.isUser ? 'text-primary' : ''}">${player.name}</h4>
+                                <p class="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Level ${player.level}</p>
+                            </div>
+                            <div class="text-right">
+                                <span class="font-black text-primary">${player.xp}</span>
+                                <span class="text-[10px] text-gray-400 font-bold block">XP</span>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+
+                ${this.getBottomNav()}
+            </div>
+        `;
+    }
+
+    buyItem(itemId) {
+        const item = shopItems.find(i => i.id === itemId);
+        if (!item) return;
+
+        if (store.data.user.coins >= item.price) {
+            if (store.deductCoins(item.price)) {
+                store.data.user.purchasedItems.push(itemId);
+                store.save();
+                this.renderShop(); // Refresh view
+
+                // Show success feedback logic could be here, but alert is simple for now
+                console.log(`Successfully purchased ${item.name}`);
+            }
+        } else {
+            console.log("Not enough coins!");
+        }
+    }
+
+    equipItem(itemId) {
+        const item = shopItems.find(i => i.id === itemId);
+        if (item && item.type === 'avatar') {
+            store.updateUser({ selectedAvatar: itemId });
+            this.renderShop(); // Refresh
+        }
     }
 
     async renderTestSelection() {
@@ -1183,16 +1329,18 @@ class App {
         const views = [
             { id: 'home', icon: '🏠', label: 'Home' },
             { id: 'learn', icon: '📚', label: 'Learn' },
+            { id: 'shop', icon: '🏪', label: 'Shop' },
+            { id: 'leaderboard', icon: '🏆', label: 'Ranking' },
             { id: 'test', icon: '📝', label: 'Tests' },
             { id: 'profile', icon: '👤', label: 'Profile' }
         ];
 
         return `
-            <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 p-2 flex items-center justify-around z-20 shadow-[0_-5px_15px_-3px_rgba(0,0,0,0.05)]">
+            <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 p-1 flex items-center justify-around z-20 shadow-[0_-5px_15px_-3px_rgba(0,0,0,0.05)]">
                 ${views.map(v => `
-                    <button class="flex flex-col items-center p-2 ${this.currentView === v.id ? 'text-primary' : 'text-gray-400'}" onclick="app.navigate('${v.id}')">
-                        <span class="text-xl">${v.icon}</span>
-                        <span class="text-[10px] font-bold">${v.label}</span>
+                    <button class="flex flex-col items-center py-2 px-1 ${this.currentView === v.id ? 'text-primary' : 'text-gray-400'} transition-colors" onclick="app.navigate('${v.id}')">
+                        <span class="text-lg">${v.icon}</span>
+                        <span class="text-[8px] font-bold mt-1 uppercase tracking-tighter">${v.label}</span>
                     </button>
                 `).join('')}
             </div>

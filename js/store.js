@@ -23,11 +23,19 @@ const INITIAL_DATA = {
         streak: 0,
         lastActive: null,
         badges: [],
-        coins: 0,
+        coins: 100, // Start with some coins
         hearts: 5,
         lastHeartRegen: Date.now(),
-        lastTestTime: 0
+        lastTestTime: 0,
+        selectedAvatar: 'default',
+        purchasedItems: ['default']
     },
+    leaderboard: [
+        { name: 'Ahmad', level: 12, xp: 1250, isBot: true },
+        { name: 'Sara', level: 10, xp: 980, isBot: true },
+        { name: 'Zeeshan', level: 8, xp: 750, isBot: true },
+        { name: 'Fatima', level: 5, xp: 420, isBot: true }
+    ],
     progress: {
         tenses: {
             simplePresent: 0,
@@ -86,6 +94,7 @@ class Store {
                 ...INITIAL_DATA,
                 ...parsed,
                 user: { ...INITIAL_DATA.user, ...parsed.user },
+                leaderboard: parsed.leaderboard || INITIAL_DATA.leaderboard,
                 progress: {
                     tenses: { ...INITIAL_DATA.progress.tenses, ...(parsed.progress?.tenses || {}) },
                     activePassive: { ...INITIAL_DATA.progress.activePassive, ...(parsed.progress?.activePassive || {}) },
@@ -109,6 +118,11 @@ class Store {
 
     addXP(amount) {
         this.data.user.xp += amount;
+
+        // Also award coins (1 coin per 10 XP)
+        const coinAward = Math.floor(amount / 5);
+        if (coinAward > 0) this.addCoins(coinAward);
+
         // Simple level logic: 100 XP per level for first 10 levels
         const nextLevelXP = this.data.user.level * 100;
         if (this.data.user.xp >= nextLevelXP) {
@@ -117,6 +131,21 @@ class Store {
             window.dispatchEvent(new CustomEvent('level-up', { detail: { level: this.data.user.level } }));
         }
         this.save();
+    }
+
+    addCoins(amount) {
+        this.data.user.coins += amount;
+        this.save();
+        window.dispatchEvent(new CustomEvent('coins-updated', { detail: { coins: this.data.user.coins } }));
+    }
+
+    deductCoins(amount) {
+        if (this.data.user.coins >= amount) {
+            this.data.user.coins -= amount;
+            this.save();
+            return true;
+        }
+        return false;
     }
 
     updateProgress(type, id, value) {
