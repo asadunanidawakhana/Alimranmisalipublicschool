@@ -3,7 +3,8 @@
  * Orchestrates component rendering and navigation
  */
 
-import { store } from './js/store.js';
+import { store, db } from './js/store.js';
+import { ref, get, set, update, remove, onValue, off, onDisconnect } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-database.js";
 import { tenses } from './js/data/tenses.js';
 import { questions } from './js/data/questions.js';
 import { badges } from './js/data/badges.js';
@@ -62,6 +63,22 @@ class App {
         if (!store.data.user.name) {
             this.navigate('onboarding');
         } else {
+            // Push local user data to the new backend to ensure they are tracked
+            store.syncWithBackend();
+
+            // Check Daily Streak
+            if (store.checkDailyStreak()) {
+                // Wait a moment for app to render, then show reward
+                setTimeout(() => this.showDailyReward(), 1500);
+            }
+
+            // Listen for badge unlock events globally
+            window.addEventListener('badge-unlocked', (e) => {
+                const badge = e.detail;
+                // Wait slightly to not overlap with other alerts
+                setTimeout(() => this.showBadgeUnlock(badge), 500);
+            });
+
             // Handle hash on refresh
             const hash = window.location.hash.substring(1);
             if (hash && hash !== 'home' && hash !== 'onboarding' && hash !== 'game' && hash !== 'test') {
@@ -114,6 +131,88 @@ class App {
         });
     }
 
+    showDailyReward() {
+        const coinsEarned = store.claimDailyReward();
+        if (coinsEarned === 0) return; // Already claimed
+
+        const overlay = document.createElement('div');
+        overlay.id = 'daily-reward-modal';
+        overlay.className = 'fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in';
+
+        let flameIcons = '';
+        for (let i = 0; i < Math.min(store.data.user.streak, 5); i++) flameIcons += '🔥';
+
+        overlay.innerHTML = `
+            <div class="w-full max-w-sm bg-white rounded-[40px] overflow-hidden shadow-2xl animate-bounce-in relative text-center">
+                <!-- Header with pattern -->
+                <div class="p-8 pb-12 relative overflow-hidden text-white" style="background: linear-gradient(135deg, #fb923c, #ef4444);">
+                    <div class="absolute top-0 right-0 w-32 h-32 bg-white/20 rounded-full -mr-16 -mt-16 animate-pulse-soft"></div>
+                    
+                    <div class="relative z-10">
+                        <div class="text-7xl mb-4 animate-float drop-shadow-lg">🔥</div>
+                        <h3 class="text-3xl font-black mb-1">Day ${store.data.user.streak}</h3>
+                        <p class="font-medium opacity-90 uppercase tracking-widest text-xs">Login Streak</p>
+                    </div>
+                </div>
+
+                <!-- Content -->
+                <div class="px-6 py-8 relative bg-white -mt-6 rounded-t-3xl">
+                    <h4 class="text-xl font-bold text-gray-800 mb-2">Daily Bonus Unlocked!</h4>
+                    <p class="text-gray-500 text-sm mb-6">You logged in for <span class="font-bold text-orange-500">${store.data.user.streak} consecutive days!</span></p>
+                    
+                    <div class="bg-green-50 border-2 border-green-100 rounded-2xl p-4 mb-8 flex items-center justify-center space-x-3 transform transition hover:scale-105">
+                        <span class="text-4xl text-green-500">💰</span>
+                        <div class="text-left">
+                            <p class="text-xs font-bold text-green-600 uppercase tracking-wider">Reward</p>
+                            <p class="text-2xl font-black text-green-700">+${coinsEarned} Coins</p>
+                        </div>
+                    </div>
+                    
+                    <button onclick="document.getElementById('daily-reward-modal').remove(); app.renderView(app.currentView, {})" 
+                        class="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-4 rounded-2xl shadow-[0_8px_0_0_rgb(194,65,12)] hover:shadow-[0_4px_0_0_rgb(194,65,12)] hover:translate-y-1 transition-all active:translate-y-2 active:shadow-none text-lg">
+                        Claim Reward / وصول کریں
+                    </button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+    }
+
+    showBadgeUnlock(badge) {
+        const overlay = document.createElement('div');
+        overlay.id = `badge-${badge.id}`;
+        overlay.className = 'fixed top-4 left-4 right-4 z-[300] bg-white rounded-2xl p-4 shadow-2xl border-2 border-primary/20 flex items-center space-x-4 animate-slide-up transform transition-all cursor-pointer';
+
+        overlay.innerHTML = `
+            <div class="w-14 h-14 bg-primary/10 rounded-xl flex items-center justify-center text-3xl shrink-0 animate-bounce-in shadow-inner">
+                ${badge.icon}
+            </div>
+            <div class="flex-1">
+                <p class="text-[10px] text-primary font-bold uppercase tracking-wider mb-0.5 animate-pulse">New Title Unlocked!</p>
+                <h4 class="font-black text-gray-800 leading-tight">${badge.name}</h4>
+                <p class="text-xs text-gray-500 mt-0.5 line-clamp-1">${badge.description}</p>
+            </div>
+            <button class="text-gray-400 p-2 hover:bg-gray-100 rounded-full transition active:scale-95">✕</button>
+        `;
+
+        document.body.appendChild(overlay);
+
+        // Auto dismiss after 4 seconds
+        const timeoutId = setTimeout(() => {
+            if (document.getElementById(overlay.id)) {
+                overlay.classList.add('opacity-0', '-translate-y-4');
+                setTimeout(() => overlay.remove(), 300);
+            }
+        }, 4000);
+
+        // Dismiss on click
+        overlay.onclick = () => {
+            clearTimeout(timeoutId);
+            overlay.classList.add('opacity-0', '-translate-y-4');
+            setTimeout(() => overlay.remove(), 300);
+        };
+    }
+
     navigate(view, params = {}) {
         window.history.pushState({ view, params }, '', `#${view}`);
         this.renderView(view, params);
@@ -127,6 +226,14 @@ class App {
             // Close any existing overlays first
             const existingOverlays = document.querySelectorAll('.fixed.z-50');
             existingOverlays.forEach(o => o.remove());
+
+            // Listen for real-time leaderboard updates
+            window.addEventListener('leaderboard-updated', () => {
+                if (this.currentView === 'leaderboard') {
+                    // Re-render the leaderboard dynamically if they are on that page
+                    this.renderLeaderboard();
+                }
+            });
 
             switch (view) {
                 case 'onboarding':
@@ -197,8 +304,35 @@ class App {
         document.getElementById('next-onboarding').onclick = () => {
             const name = document.getElementById('user-name').value.trim();
             if (name) {
-                store.updateUser({ name });
-                this.navigate('home');
+                // Check if socket is available for online check
+                if (typeof socket !== 'undefined' && socket && socket.connected) {
+                    // Change button state to show loading
+                    const btn = document.getElementById('next-onboarding');
+                    const originalText = btn.innerHTML;
+                    btn.innerHTML = `<span class="animate-pulse">Checking...</span>`;
+                    btn.disabled = true;
+
+                    socket.emit('check_username', { name, id: store.data.user.id }, (response) => {
+                        btn.innerHTML = originalText;
+                        btn.disabled = false;
+
+                        if (response.isUnique) {
+                            store.updateUser({ name });
+                            this.navigate('home');
+                        } else {
+                            // Keep current name in input but show alert and suggestion
+                            alert('⚠️ ' + response.message);
+
+                            // Optionally add a random number to suggest a new name automatically
+                            const suggestNum = Math.floor(Math.random() * 99) + 1;
+                            document.getElementById('user-name').value = `${name} ${suggestNum}`;
+                        }
+                    });
+                } else {
+                    // Offline fallback or not connected yet
+                    store.updateUser({ name });
+                    this.navigate('home');
+                }
             } else {
                 alert('Please enter your name');
             }
@@ -246,6 +380,16 @@ class App {
                         <button onclick="app.navigate('tense-detail', {id: 'simplePresent'})" class="bg-white text-primary font-bold px-6 py-2 rounded-full text-sm hover:bg-soft-gray transition shadow-md">
                             Resume
                         </button>
+                    </div>
+
+                    <!-- 1v1 Battle Card -->
+                    <div class="p-6 rounded-3xl text-white shadow-lg flex items-center justify-between cursor-pointer active:scale-95 transition hover:shadow-xl" style="background: linear-gradient(135deg, #ef4444, #f97316);" onclick="app.renderMatchmaking()">
+                        <div>
+                            <span class="bg-white/20 text-xs font-bold px-2 py-1 rounded-md mb-2 inline-block">NEW!</span>
+                            <h3 class="font-bold text-xl mb-1 drop-shadow-md">1v1 Battle</h3>
+                            <p class="text-white text-xs font-bold drop-shadow">Compete globally in real-time!</p>
+                        </div>
+                        <div class="text-5xl drop-shadow-lg">⚔️</div>
                     </div>
 
                     <!-- Daily Challenge -->
@@ -315,8 +459,16 @@ class App {
                     <div class="bg-white p-8 rounded-[40px] shadow-sm border-2 border-secondary/5 flex flex-col items-center text-center cursor-pointer active:scale-95 transition-all hover:bg-secondary/5 group" onclick="app.navigate('learn-ap')">
                         <div class="w-24 h-24 bg-secondary/10 rounded-full flex items-center justify-center text-secondary text-5xl mb-6 group-hover:scale-110 transition-transform">🔄</div>
                         <h3 class="text-2xl font-bold text-gray-800 mb-2">Active / Passive Voice</h3>
-                        <p class="text-gray-500 font-urdu">ایکٹو اور پیسو وائس سیکھیں</p>
+                        <p class="text-gray-500 font-urdu">ایکٹو پیسو وائس</p>
                         <p class="mt-4 text-xs font-bold text-secondary px-4 py-2 bg-secondary/5 rounded-full">8 Lessons</p>
+                    </div>
+
+                    <!-- Multiplayer Option -->
+                    <div class="p-8 rounded-[40px] shadow-sm border border-orange-200/50 flex flex-col items-center text-center cursor-pointer active:scale-95 transition-all hover:border-orange-300 group" style="background: linear-gradient(135deg, #ef4444, #f97316);" onclick="app.renderMatchmaking()">
+                        <div class="w-24 h-24 rounded-full flex items-center justify-center text-white text-5xl mb-6 group-hover:scale-110 transition-transform shadow-lg bg-white/20 border-4 border-white/30">⚔️</div>
+                        <h3 class="text-2xl font-black text-white mb-2 drop-shadow-md">1v1 Multiplayer</h3>
+                        <p class="text-white text-sm font-bold drop-shadow">Challenge other learners in real-time!</p>
+                        <p class="mt-4 text-xs font-bold text-orange-600 px-4 py-2 bg-white rounded-full shadow-md">Live Matching</p>
                     </div>
                 </div>
                 
@@ -798,6 +950,8 @@ class App {
             xpEarned: 0,
             scrambledWords: [],
             userWords: [],
+            timeLeft: 60, // 60 seconds survival timer
+            timerInterval: null,
             matchingData: {
                 leftItems: null,
                 rightItems: null,
@@ -806,6 +960,32 @@ class App {
                 matchedPairs: []
             }
         };
+
+        // Start Survival Timer
+        this.gameState.timerInterval = setInterval(() => {
+            if (this.currentView !== 'test' && this.currentView !== 'game') {
+                clearInterval(this.gameState.timerInterval);
+                return;
+            }
+            this.gameState.timeLeft--;
+
+            // Update UI
+            const timerEl = document.getElementById('test-timer');
+            const timerBar = document.getElementById('test-timer-bar');
+            if (timerEl) {
+                timerEl.innerText = this.gameState.timeLeft + 's';
+                if (this.gameState.timeLeft <= 10) timerEl.classList.add('text-red-500', 'animate-pulse');
+            }
+            if (timerBar) {
+                timerBar.style.width = Math.min(100, (this.gameState.timeLeft / 60) * 100) + '%';
+                if (this.gameState.timeLeft <= 10) timerBar.classList.replace('bg-success', 'bg-red-500');
+            }
+
+            if (this.gameState.timeLeft <= 0) {
+                clearInterval(this.gameState.timerInterval);
+                this.endGame(true, true); // Time out end
+            }
+        }, 1000);
 
         this.renderQuestion();
     }
@@ -872,11 +1052,17 @@ class App {
                         <button onclick="app.navigate(app.gameState.isTest ? 'test' : (app.gameState.mode === 'tenses' ? 'tense-detail' : 'ap-detail'), {id: '${this.gameState.tenseId}'})" class="text-2xl p-2">✕</button>
                         <div class="flex-1 mx-4">
                             <div class="w-full bg-gray-100 h-3 rounded-full overflow-hidden">
-                                <div class="bg-success h-full transition-all duration-500" style="width: ${progress}%"></div>
+                                ${this.gameState.isTest
+                    ? `<div id="test-timer-bar" class="bg-success h-full transition-all duration-1000" style="width: ${Math.min(100, (this.gameState.timeLeft / 60) * 100)}%"></div>`
+                    : `<div class="bg-success h-full transition-all duration-500" style="width: ${progress}%"></div>`
+                }
                             </div>
                         </div>
                         <div class="flex items-center space-x-1">
-                            ${this.gameState.isTest ? '<span class="text-primary font-bold">TEST</span>' : `
+                            ${this.gameState.isTest ? `
+                                <span class="text-2xl leading-none">⏳</span>
+                                <span id="test-timer" class="font-bold text-lg w-8 text-right ${this.gameState.timeLeft <= 10 ? 'text-red-500 animate-pulse' : 'text-gray-700'}">${this.gameState.timeLeft}s</span>
+                            ` : `
                             <span class="text-error text-xl">❤️</span>
                             <span class="font-bold">${this.gameState.lives}</span>
                             `}
@@ -935,16 +1121,29 @@ class App {
             }
 
             if (isCorrect) {
-                const xp = this.gameState.isTest ? 20 : 10;
-                const coins = Math.floor(xp / 5);
+                let xp = this.gameState.isTest ? 20 : 10;
+                let coins = Math.floor(xp / 5);
                 this.gameState.score++;
                 this.gameState.xpEarned += xp;
                 this.gameState.coinsEarned = (this.gameState.coinsEarned || 0) + coins;
-                this.showFeedback(true, `+${xp} XP & +${coins} 💰`);
+
+                let timeBonus = '';
+                if (this.gameState.isTest) {
+                    this.gameState.timeLeft = Math.min(60, this.gameState.timeLeft + 3);
+                    timeBonus = ' | +3s ⏳';
+                }
+
+                this.showFeedback(true, `+${xp} XP & +${coins} 💰${timeBonus}`);
             } else {
-                if (!this.gameState.isTest) this.gameState.lives--;
+                if (!this.gameState.isTest) {
+                    this.gameState.lives--;
+                } else {
+                    // Time penalty in test mode
+                    this.gameState.timeLeft -= 5;
+                }
+
                 const correctText = typeof q.answer === 'string' ? q.answer : (q.answer ? (Array.isArray(q.answer) ? q.answer.join(' ') : q.answer) : (q.sentence || 'Incorrect'));
-                this.showFeedback(false, correctText);
+                this.showFeedback(false, correctText + (this.gameState.isTest ? ' | -5s ⏳' : ''));
             }
         } catch (error) {
             console.error("Error checking answer:", error);
@@ -956,6 +1155,92 @@ class App {
             });
             this.showFeedback(false, "Error occurred / ایرر آ گیا");
         }
+    }
+
+    renderScramble(q) {
+        if (!this.gameState.scrambledWords) {
+            this.gameState.scrambledWords = [...q.answer].sort(() => Math.random() - 0.5);
+            this.gameState.userWords = [];
+        }
+
+        const userArea = this.gameState.userWords.map((word, idx) => `
+            <div onclick="app.handleScrambleClick('remove', ${idx})" class="px-4 py-2 bg-primary text-white rounded-xl font-bold cursor-pointer shadow-md transform transition hover:scale-105">
+                ${word}
+            </div>
+        `).join('') || '<span class="text-gray-400 opacity-50">Tap words below to build the sentence...</span>';
+
+        const poolArea = this.gameState.scrambledWords.map((word, idx) => {
+            const isUsed = this.gameState.userWords.includes(word);
+            return `
+                <div ${isUsed ? '' : `onclick="app.handleScrambleClick('add', '${String(word).replace(/'/g, "\\'")}')"`} 
+                     class="px-4 py-2 rounded-xl font-bold transition-all duration-300 ${isUsed ? 'bg-gray-100 text-gray-300 pointer-events-none scale-95' : 'bg-white border-2 border-gray-200 text-gray-700 cursor-pointer shadow-sm hover:border-primary hover:text-primary active:scale-95'}">
+                    ${word}
+                </div>
+            `;
+        }).join('');
+
+        return `
+            <div class="space-y-6 w-full">
+                <!-- User built sentence -->
+                <div class="min-h-[80px] p-4 bg-gray-50 border-2 border-dashed border-gray-300 rounded-3xl flex flex-wrap gap-2 items-center justify-center transition-all duration-300 ${this.gameState.userWords.length > 0 ? 'border-primary/50 bg-primary/5' : ''}">
+                    ${userArea}
+                </div>
+                
+                <!-- Word pool -->
+                <div class="flex flex-wrap gap-3 justify-center">
+                    ${poolArea}
+                </div>
+
+                <div class="flex space-x-3 pt-4 border-t border-gray-100">
+                    <button onclick="app.checkScramble()" class="flex-1 bg-primary text-white font-bold py-4 rounded-2xl shadow-lg active:scale-95 transition flex items-center justify-center space-x-2">
+                        <span>Check Sentence</span>
+                    </button>
+                    ${this.gameState.userWords.length > 0 ? `
+                        <button onclick="app.gameState.userWords=[]; app.renderQuestion()" class="p-4 bg-gray-100 text-gray-500 rounded-2xl hover:bg-gray-200 active:scale-95 transition">
+                            ↺
+                        </button>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+    }
+
+    handleScrambleClick(action, payload) {
+        if (action === 'add') {
+            this.gameState.userWords.push(payload);
+        } else if (action === 'remove') {
+            this.gameState.userWords.splice(payload, 1);
+        }
+        this.renderQuestion();
+    }
+
+    checkScramble() {
+        if (!this.gameState || !this.gameState.questions) return;
+        const q = this.gameState.questions[this.gameState.currentIndex];
+        const correct = Array.isArray(q.answer) ? q.answer.join(' ') : q.answer;
+        const user = this.gameState.userWords.join(' ');
+        this.checkAnswer(null, user === correct);
+    }
+
+    renderVerbRace(q) {
+        // Similar to MCQ but styled fast-paced
+        return q.options.map((opt, idx) => `
+            <button onclick="app.handleVerbRaceClick(this)" data-answer="${String(opt).replace(/"/g, "&quot;")}" 
+                    class="w-full relative overflow-hidden p-5 rounded-2xl border-b-4 border-gray-200 bg-white hover:border-b-4 hover:border-primary hover:bg-primary/5 hover:-translate-y-1 text-lg font-bold transition-all active:translate-y-1 active:border-b-0 animate-slide-up shadow-sm"
+                    style="animation-delay: ${idx * 0.1}s">
+                <span class="relative z-10">${opt}</span>
+            </button>
+        `).join('');
+    }
+
+    handleVerbRaceClick(btn) {
+        const answer = btn.getAttribute('data-answer');
+        btn.classList.add('bg-primary', 'text-white', 'border-primary');
+        setTimeout(() => this.checkAnswer(answer), 300);
+    }
+
+    renderMatchPairs(q) {
+        return '<p class="text-error">Match Pairs game is not fully constructed yet.</p>';
     }
 
     showFeedback(isCorrect, correctAnswer) {
@@ -1008,7 +1293,12 @@ class App {
         };
     }
 
-    async endGame(completed) {
+    async endGame(completed, timeout = false) {
+        // Clear survival timer if it exists
+        if (this.gameState.timerInterval) {
+            clearInterval(this.gameState.timerInterval);
+        }
+
         // Update store
         if (this.gameState.xpEarned > 0) {
             store.addXP(this.gameState.xpEarned);
@@ -1037,9 +1327,9 @@ class App {
 
         this.container.innerHTML = `
             <div class="flex flex-col min-h-screen bg-white animate-fade-in p-6 items-center justify-center text-center">
-                <div class="text-6xl mb-6 animate-bounce-in">${completed ? (this.gameState.isTest ? '📜' : '🏆') : '💔'}</div>
-                <h2 class="text-3xl font-bold mb-2">${completed ? (this.gameState.isTest ? 'Test Complete!' : 'Tense Mastery!') : 'Game Over'}</h2>
-                <p class="text-gray-500 mb-8">${completed ? 'You finished the session!' : 'Better luck next time!'}</p>
+                <div class="text-6xl mb-6 animate-bounce-in">${timeout ? '⏰' : (completed ? (this.gameState.isTest ? '📜' : '🏆') : '💔')}</div>
+                <h2 class="text-3xl font-bold mb-2">${timeout ? 'Time\'s Up!' : (completed ? (this.gameState.isTest ? 'Test Complete!' : 'Tense Mastery!') : 'Game Over')}</h2>
+                <p class="text-gray-500 mb-8">${timeout ? 'You survived ' + this.gameState.score + ' questions!' : (completed ? 'You finished the session!' : 'Better luck next time!')}</p>
                 
                 <div class="w-full bg-soft-gray rounded-3xl p-6 mb-8 space-y-4 animate-bounce-in" style="animation-delay: 0.2s">
                     <div class="flex justify-between items-center">
@@ -1182,44 +1472,435 @@ class App {
         `;
     }
 
+    async renderMatchmaking() {
+        this.container.innerHTML = `
+            <div class="flex flex-col min-h-screen bg-primary animate-fade-in p-6 items-center justify-center text-center text-white relative overflow-hidden">
+                <div class="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4IiBoZWlnaHQ9IjgiPgo8cmVjdCB3aWR0aD0iOCIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuMDUiLz4KPC9zdmc+')] opacity-20"></div>
+                
+                <div class="relative z-10 w-full max-w-sm">
+                    <div class="w-32 h-32 mx-auto bg-white/20 rounded-full flex items-center justify-center text-6xl mb-8 shadow-2xl animate-spin-slow border-4 border-white border-t-transparent">
+                        ⚔️
+                    </div>
+                    
+                    <h2 class="text-3xl font-black mb-2 animate-pulse">Finding Opponent...</h2>
+                    <p class="text-white/80 mb-12">Checking global leaderboard for worthy challengers</p>
+                    
+                    <div class="flex justify-between items-center bg-white/10 rounded-3xl p-4 shimmer">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-2xl shadow-inner text-primary">
+                                ${shopItems.find(i => i.id === store.data.user.selectedAvatar)?.icon || '👤'}
+                            </div>
+                            <div class="text-left">
+                                <p class="font-bold">${store.data.user.name || 'Student'}</p>
+                                <p class="text-xs text-white/70">Level ${store.data.user.level || 1}</p>
+                            </div>
+                        </div>
+                        <span class="text-2xl font-black text-white/50 animate-pulse">VS</span>
+                        <div class="flex items-center space-x-3">
+                            <div class="text-right">
+                                <p class="text-xs text-white/70">???</p>
+                            </div>
+                            <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center text-2xl animate-pulse">
+                                ❓
+                            </div>
+                        </div>
+                    </div>
+
+                    <button onclick="app.cancelMatchmaking()" class="mt-12 text-white/50 hover:text-white font-bold transition active:scale-95">Cancel</button>
+                </div>
+            </div>
+        `;
+
+        const myId = store.data.user.id;
+        const myData = {
+            id: myId,
+            name: store.data.user.name || 'Student',
+            level: store.data.user.level || 1,
+            selectedAvatar: store.data.user.selectedAvatar || 'default',
+            timestamp: Date.now()
+        };
+
+        const waitingRef = ref(db, 'matchmaking/waitingRoom');
+
+        get(waitingRef).then((snapshot) => {
+            const data = snapshot.val();
+            // If someone else is waiting
+            if (data && data.id !== myId && !data.roomId) {
+                // I am Player 2!
+                const roomId = 'room_' + Date.now() + '_' + myId;
+                const matchData = {
+                    roomId: roomId,
+                    p1: { ...data, score: 0 },
+                    p2: { ...myData, score: 0 }
+                };
+
+                // Create the active room
+                set(ref(db, 'active_matches/' + roomId), matchData).then(() => {
+                    // Tell P1 the room is ready
+                    update(waitingRef, { roomId: roomId, p2Data: myData }).then(() => {
+                        this.startMatchAs(roomId, 2, data);
+                    });
+                });
+            } else {
+                // No one is waiting, or it's just my old stale connection. I am Player 1.
+                set(waitingRef, myData).then(() => {
+                    // Handle disconnect cleanup
+                    onDisconnect(waitingRef).remove();
+
+                    // Listen for P2 to pair with me
+                    this.matchmakingListener = onValue(waitingRef, (snap) => {
+                        const val = snap.val();
+                        if (val && val.id === myId && val.roomId && val.p2Data) {
+                            // P2 found me!
+                            off(waitingRef, 'value', this.matchmakingListener);
+                            this.matchmakingListener = null;
+                            remove(waitingRef); // Clean up queue
+                            this.startMatchAs(val.roomId, 1, val.p2Data);
+                        }
+                    });
+                });
+            }
+        });
+    }
+
+    startMatchAs(roomId, playerNum, opponentData) {
+        if (this.matchmakingListener) {
+            off(ref(db, 'matchmaking/waitingRoom'), 'value', this.matchmakingListener);
+            this.matchmakingListener = null;
+        }
+
+        this.battleState = {
+            roomId,
+            playerNum,
+            myScore: 0,
+            opponent: opponentData,
+            opponentScore: 0
+        };
+
+        const matchRef = ref(db, 'active_matches/' + roomId);
+
+        // Handle disconnect during match
+        onDisconnect(matchRef).remove();
+
+        this.matchListener = onValue(matchRef, (snap) => {
+            const val = snap.val();
+            if (!val) {
+                // Room was deleted, opponent left
+                this.endBattle(true, 'opponent_left');
+                return;
+            }
+
+            const myData = playerNum === 1 ? val.p1 : val.p2;
+            const opData = playerNum === 1 ? val.p2 : val.p1;
+
+            if (opData.score >= 6) {
+                this.battleState.opponentScore = opData.score;
+                this.updateBattleUI();
+                this.endBattle(false, 'score_reached');
+            } else if (myData.score >= 6) {
+                this.battleState.myScore = myData.score;
+                this.updateBattleUI();
+                this.endBattle(true, 'score_reached');
+            } else {
+                this.battleState.opponentScore = opData.score;
+                this.updateBattleUI();
+            }
+        });
+
+        this.startBattleGame();
+    }
+
+    cancelMatchmaking() {
+        if (this.matchmakingListener) {
+            off(ref(db, 'matchmaking/waitingRoom'), 'value', this.matchmakingListener);
+            this.matchmakingListener = null;
+            remove(ref(db, 'matchmaking/waitingRoom'));
+        }
+        if (this.matchListener && this.battleState) {
+            off(ref(db, 'active_matches/' + this.battleState.roomId), 'value', this.matchListener);
+            this.matchListener = null;
+            remove(ref(db, 'active_matches/' + this.battleState.roomId));
+        }
+        this.battleState = null;
+        this.navigate('learn-tenses');
+    }
+
+    startBattleGame() {
+        // Pool random 15 questions from Tenses and AP Data
+        let testPool = [];
+        if (typeof tensesData !== 'undefined') {
+            Object.values(tensesData).forEach(tense => testPool = testPool.concat(tense.questions));
+        }
+        if (typeof activePassiveData !== 'undefined') {
+            Object.values(activePassiveData).forEach(topic => testPool = testPool.concat(topic.questions));
+        }
+        testPool = testPool.sort(() => Math.random() - 0.5).slice(0, 15);
+
+        this.gameState = {
+            isBattle: true,
+            questions: testPool,
+            currentIndex: 0,
+            scrambledWords: [],
+            userWords: []
+        };
+
+        this.navigate('battle');
+        this.renderBattleQuestion();
+    }
+
+    renderBattleQuestion() {
+        if (!this.gameState || !this.gameState.questions) return this.navigate('home');
+
+        const q = this.gameState.questions[this.gameState.currentIndex];
+        const opponentAvatar = shopItems.find(i => i.id === (this.battleState.opponent.selectedAvatar || 'default'))?.icon || '👤';
+
+        this.container.innerHTML = `
+            <div class="flex flex-col min-h-screen bg-soft-gray animate-fade-in relative">
+                <!-- Battle Stats Header -->
+                <div class="bg-primary p-4 rounded-b-3xl shadow-lg relative z-20 text-white flex justify-between items-center">
+                    
+                    <!-- P1 (Me) -->
+                    <div class="flex items-center space-x-2">
+                        <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center text-xl shadow-inner text-primary relative">
+                            ${this.battleState.myScore >= 6 ? '<div class="absolute -top-2 -right-2 text-xl drop-shadow-md z-10 animate-bounce">👑</div>' : ''}
+                            ${shopItems.find(i => i.id === store.data.user.selectedAvatar)?.icon || '👤'}
+                        </div>
+                        <div class="text-left">
+                            <p class="text-[10px] uppercase font-bold text-white/70">You</p>
+                            <p class="font-black text-lg leading-none" id="battle-my-score">${this.battleState.myScore}</p>
+                        </div>
+                    </div>
+
+                    <div class="font-black text-2xl italic tracking-tighter text-yellow-300">VS</div>
+
+                    <!-- P2 (Opponent) -->
+                    <div class="flex items-center space-x-2 text-right">
+                        <div>
+                            <p class="text-[10px] uppercase font-bold text-white/70">${this.battleState.opponent.name}</p>
+                            <p class="font-black text-lg leading-none text-red-200" id="battle-op-score">${this.battleState.opponentScore}</p>
+                        </div>
+                        <div class="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center text-xl shadow-inner">
+                            ${opponentAvatar}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Progress Bars -->
+                <div class="w-full h-1.5 bg-gray-200 flex">
+                    <div id="battle-my-bar" class="h-full bg-success transition-all duration-500" style="width: ${(this.battleState.myScore / 6) * 50}%"></div>
+                    <div class="flex-1"></div>
+                    <div id="battle-op-bar" class="h-full bg-error transition-all duration-500" style="width: ${(this.battleState.opponentScore / 6) * 50}%"></div>
+                </div>
+
+                <!-- Game Content -->
+                <div class="flex-1 p-6 flex flex-col pt-8">
+                    <!-- Target Sentence -->
+                    <div class="bg-white p-6 rounded-[2rem] shadow-sm mb-8 border border-gray-100 relative">
+                        <span class="absolute -top-3 left-6 bg-primary text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-sm uppercase tracking-wider">
+                            ${q.type === 'mcq' ? 'Choose Correct' : q.type === 'fill' ? 'Fill Blank' : q.type === 'verb_race' ? 'Quick Choose' : 'Build Sentence'}
+                        </span>
+                        
+                        <p class="text-2xl text-gray-800 font-medium leading-relaxed">${q.sentence.replace('___', '<span class="inline-block w-16 border-b-2 border-primary translate-y-1"></span>')}</p>
+                        ${q.urdu ? `<p class="text-primary/60 font-urdu mt-4 text-xl rtl text-right border-t border-gray-50 pt-4" dir="rtl">${q.urdu}</p>` : ''}
+                    </div>
+
+                    <!-- Options -->
+                    <div class="space-y-3 flex-1 relative z-10 w-full" id="battle-game-area">
+                        ${q.type === 'mcq' ? this.renderMCQ(q) :
+                q.type === 'fill' ? this.renderFillBlank(q) :
+                    q.type === 'scramble' ? this.renderScramble(q) :
+                        q.type === 'verb_race' ? this.renderVerbRace(q) :
+                            q.type === 'match_pairs' ? this.renderMatchPairs(q) : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+
+        if (q.type === 'fill') {
+            document.getElementById('fill-input').focus();
+            document.getElementById('fill-input').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') this.checkBattleAnswer(document.getElementById('fill-input').value.trim());
+            });
+        }
+    }
+
+    updateBattleUI() {
+        const myScoreEl = document.getElementById('battle-my-score');
+        const opScoreEl = document.getElementById('battle-op-score');
+        const myBarEl = document.getElementById('battle-my-bar');
+        const opBarEl = document.getElementById('battle-op-bar');
+
+        if (myScoreEl) myScoreEl.innerText = this.battleState.myScore;
+        if (opScoreEl) opScoreEl.innerText = this.battleState.opponentScore;
+        if (myBarEl) myBarEl.style.width = `${(this.battleState.myScore / 6) * 50}%`;
+        if (opBarEl) opBarEl.style.width = `${(this.battleState.opponentScore / 6) * 50}%`;
+    }
+
+    checkBattleAnswer(userAnswer) {
+        if (!this.gameState || !this.gameState.questions) return;
+
+        const q = this.gameState.questions[this.gameState.currentIndex];
+
+        let isCorrect = false;
+
+        if (Array.isArray(q.answer)) {
+            isCorrect = q.answer.map(a => a.toLowerCase().trim()).includes(userAnswer.toLowerCase().trim());
+        } else {
+            isCorrect = userAnswer.toLowerCase().trim() === q.answer.toLowerCase().trim();
+        }
+
+        const btnContainer = document.getElementById('battle-game-area');
+        if (btnContainer) {
+            btnContainer.classList.add('pointer-events-none', 'opacity-50'); // Lock UI briefly
+        }
+
+        if (isCorrect) {
+            this.battleState.myScore++;
+            // Alert Firebase!
+            if (this.battleState) {
+                const scorePath = `active_matches/${this.battleState.roomId}/p${this.battleState.playerNum}/score`;
+                set(ref(db, scorePath), this.battleState.myScore);
+            }
+        } else {
+            // Apply tiny delay penalty for getting it wrong visually
+            const wrongFX = document.createElement('div');
+            wrongFX.className = 'absolute inset-0 bg-red-500/10 z-50 pointer-events-none transition-opacity duration-300';
+            document.body.appendChild(wrongFX);
+            setTimeout(() => wrongFX.remove(), 300);
+        }
+
+        // Just proceed to the next question for myself automatically so I can keep scoring
+        setTimeout(() => {
+            if (this.gameState) {
+                this.gameState.currentIndex++;
+                this.gameState.scrambledWords = null;
+                this.gameState.userWords = [];
+                // if we run out of 15 questions, reshuffle
+                if (this.gameState.currentIndex >= this.gameState.questions.length) {
+                    this.gameState.currentIndex = 0;
+                    this.gameState.questions = this.gameState.questions.sort(() => Math.random() - 0.5);
+                }
+                this.renderBattleQuestion();
+            }
+        }, isCorrect ? 300 : 800); // More delay if wrong
+    }
+
+    endBattle(iWon, reason) {
+        if (this.matchListener && this.battleState && reason !== 'opponent_disconnected' && reason !== 'opponent_left') {
+            off(ref(db, 'active_matches/' + this.battleState.roomId), 'value', this.matchListener);
+            this.matchListener = null;
+            remove(ref(db, 'active_matches/' + this.battleState.roomId));
+        }
+
+        this.gameState = null;
+        this.battleState = null;
+
+        // Reward logic
+        if (iWon) {
+            store.addXP(50);
+            store.addCoins(25);
+        }
+
+        this.container.innerHTML = `
+            <div class="flex flex-col min-h-screen bg-white animate-fade-in p-6 items-center justify-center text-center">
+                <div class="text-8xl mb-6 animate-bounce-in">${iWon ? '🏆' : '💀'}</div>
+                <h2 class="text-3xl font-black mb-2 tracking-tight ${iWon ? 'text-green-500' : 'text-red-500'}">${iWon ? 'VICTORY!' : 'DEFEAT'}</h2>
+                <p class="text-gray-500 mb-8 font-bold">${reason === 'opponent_disconnected' ? 'Opponent retreated!' : (iWon ? 'You dominated the match!' : 'Better luck next time!')}</p>
+                
+                <div class="w-full bg-soft-gray rounded-3xl p-6 mb-8 space-y-4 animate-bounce-in shadow-inner" style="animation-delay: 0.2s">
+                    <div class="flex justify-between items-center text-sm border-b pb-4 border-gray-200">
+                        <span class="text-gray-500 font-bold">XP Earned</span>
+                        <span class="font-black ${iWon ? 'text-primary' : 'text-gray-400'}">${iWon ? '+50 XP' : '+0 XP'}</span>
+                    </div>
+                    <div class="flex justify-between items-center text-sm pt-2">
+                        <span class="text-gray-500 font-bold">Coins Received</span>
+                        <span class="font-black ${iWon ? 'text-green-500' : 'text-gray-400'}">${iWon ? '+25 💰' : '+0 💰'}</span>
+                    </div>
+                </div>
+
+                <div class="w-full space-y-3 animate-slide-up" style="animation-delay: 0.4s">
+                    <button onclick="app.navigate('home')" class="w-full bg-primary text-white font-bold py-4 rounded-2xl shadow-xl hover:shadow-primary/30 active:scale-95 transition">Return Home</button>
+                    <button onclick="app.renderMatchmaking()" class="w-full border-2 border-gray-100 text-gray-500 font-bold py-4 rounded-2xl active:scale-95 transition hover:bg-gray-50">Play Again</button>
+                </div>
+            </div >
+                    `;
+    }
+
     async renderLeaderboard() {
-        // Build simulated leaderboard with user included
-        const user = { name: store.data.user.name || 'You', level: store.data.user.level, xp: store.data.user.xp, isUser: true };
-        const ranking = [...store.data.leaderboard, user].sort((a, b) => b.xp - a.xp);
+        // Use the real-time leaderboard from our backend 
+        // We only want to show real users (no bots!)
+        // So we filter out anyone with `isBot: true` and ensure they have an ID.
+        console.log("Current leaderboard state:", store.data.leaderboard);
+
+        // Handle case where store.data.leaderboard might be undefined from legacy cache
+        const sourceData = Array.isArray(store.data.leaderboard) ? store.data.leaderboard : [];
+
+        let ranking = sourceData
+            .filter(p => p.id && !p.isBot) // Server data won't have isBot, but local dummy data does
+            .sort((a, b) => (b.xp || 0) - (a.xp || 0));
+
+        // If the ranking list is completely empty (server offline or no data yet), 
+        // AT LEAST show the current user so they see themselves.
+        if (ranking.length === 0 && store.data.user.id) {
+            console.log("Fallback triggering, showing local user only.");
+            ranking = [{
+                id: store.data.user.id,
+                name: store.data.user.name || 'You',
+                level: store.data.user.level || 1,
+                xp: store.data.user.xp || 0,
+                isUser: true,
+                selectedAvatar: store.data.user.selectedAvatar,
+                badges: store.data.user.badges || []
+            }];
+        }
 
         this.container.innerHTML = `
             <div class="flex flex-col min-h-screen bg-soft-gray animate-fade-in pb-24">
-                <!-- Ranking Header -->
+                <!--Ranking Header-->
                 <div class="bg-primary p-6 pt-12 pb-20 relative overflow-hidden">
                     <div class="absolute inset-0 bg-white opacity-5" style="background-image: radial-gradient(#000 0.5px, transparent 0.5px); background-size: 10px 10px;"></div>
                     <div class="flex items-center space-x-3 text-white relative z-10">
                         <button onclick="app.navigate('profile')" class="p-2 -ml-2 text-xl hover:bg-white/10 rounded-full transition">←</button>
                         <h2 class="text-2xl font-bold">Learner Ranking</h2>
                     </div>
-                    <p class="text-white/60 mt-1 relative z-10">Compete with other tense masters!</p>
+                    <p class="text-white/60 mt-1 relative z-10">Real-time Global Leaderboard!</p>
                 </div>
 
-                <!-- Leaderboard List -->
-                <div class="px-4 -mt-10 relative z-20 space-y-3 pb-8">
-                    ${ranking.map((player, index) => `
-                        <div class="flex items-center p-4 rounded-3xl bg-white ${player.isUser ? 'border-2 border-primary shadow-xl scale-102 ring-4 ring-primary/5' : 'border border-gray-50 shadow-sm'} transition-transform">
+                <!--Leaderboard List-->
+                    <div class="px-4 -mt-10 relative z-20 space-y-3 pb-8">
+                        ${ranking.length === 0 ? '<p class="text-center text-gray-500 py-10 bg-white rounded-3xl shadow-sm">Loading users or no users yet...</p>' : ''}
+                        ${ranking.map((player, index) => {
+            const isCurrentUser = player.id === store.data.user.id;
+            // Map their selected avatar (or fallback)
+            const avatarIcon = shopItems.find(i => i.id === (player.selectedAvatar || 'default'))?.icon || '👤';
+
+            return `
+                        <div class="flex items-center p-4 rounded-3xl bg-white ${isCurrentUser ? 'border-2 border-primary shadow-xl scale-102 ring-4 ring-primary/5' : 'border border-gray-50 shadow-sm'} transition-transform">
                             <div class="w-8 font-black text-lg ${index === 0 ? 'text-yellow-400' : index === 1 ? 'text-gray-400' : index === 2 ? 'text-orange-400' : 'text-gray-300'}">
                                 #${index + 1}
                             </div>
-                            <div class="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center text-xl mr-4 shadow-inner">
-                                ${player.isUser ? '👤' : (index === 0 ? '👑' : (index === 1 ? '🥈' : (index === 2 ? '🥉' : '👨‍🎓')))}
-                            </div>
+                            <div class="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center text-xl mr-4 shadow-inner relative">
+                            ${index === 0 ? '<div class="absolute -top-3 -right-2 text-2xl drop-shadow-md z-10 animate-bounce">👑</div>' : ''}
+                            ${avatarIcon}
+                        </div>
                             <div class="flex-1">
-                                <h4 class="font-bold text-gray-800 ${player.isUser ? 'text-primary' : ''}">${player.name}</h4>
-                                <p class="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Level ${player.level}</p>
+                                <h4 class="font-bold text-gray-800 flex items-center flex-wrap gap-1 ${isCurrentUser ? 'text-primary' : ''}">
+                                    ${player.name} ${isCurrentUser ? '(You)' : ''}
+                                    ${player.badges && player.badges.length > 0 ? `
+                                        <span class="inline-flex items-center justify-center w-5 h-5 bg-gray-100 text-xs rounded-full shadow-sm ml-1" title="Has unlocked badges">
+                                            ${badges.find(b => b.id === player.badges[player.badges.length - 1])?.icon || '🏆'}
+                                        </span>
+                                    ` : ''}
+                                </h4>
+                                <p class="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Level ${player.level || 1}</p>
                             </div>
                             <div class="text-right">
                                 <span class="font-black text-primary">${player.xp}</span>
                                 <span class="text-[10px] text-gray-400 font-bold block">XP</span>
                             </div>
                         </div>
-                    `).join('')}
-                </div>
+                    `}).join('')}
+                    </div>
 
                 ${this.getBottomNav()}
             </div>
@@ -1237,7 +1918,7 @@ class App {
                 this.renderShop(); // Refresh view
 
                 // Show success feedback logic could be here, but alert is simple for now
-                console.log(`Successfully purchased ${item.name}`);
+                console.log(`Successfully purchased ${item.name} `);
             }
         } else {
             console.log("Not enough coins!");
@@ -1281,7 +1962,7 @@ class App {
 
                     ${this.getBottomNav()}
                 </div>
-            `;
+                    `;
             return;
         }
 
@@ -1355,7 +2036,7 @@ class App {
 
         return `
             <div class="space-y-8">
-                <!-- Drop Zone -->
+                <!--Drop Zone-->
                 <div class="min-h-[100px] p-4 bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200 flex flex-wrap gap-2 items-center justify-center">
                     ${this.gameState.userWords.map((word, idx) => `
                         <span onclick="app.handleScrambleClick(${idx}, true)" class="px-4 py-2 bg-primary text-white rounded-xl font-bold cursor-pointer animate-bounce-in shadow-md">
@@ -1365,15 +2046,15 @@ class App {
                     ${this.gameState.userWords.length === 0 ? '<span class="text-gray-400 text-sm">Tap words to build sentence</span>' : ''}
                 </div>
 
-                <!-- Word Bank -->
-                <div class="flex flex-wrap gap-3 justify-center">
-                    ${this.gameState.scrambledWords.map((word, idx) => `
+                <!--Word Bank-->
+                    <div class="flex flex-wrap gap-3 justify-center">
+                        ${this.gameState.scrambledWords.map((word, idx) => `
                         <button onclick="app.handleScrambleClick(${idx}, false)" 
                                 class="px-6 py-3 bg-white border-2 border-gray-100 rounded-2xl font-bold text-gray-700 active:scale-95 transition hover:border-primary shadow-sm">
                             ${word}
                         </button>
                     `).join('')}
-                </div>
+                    </div>
 
                 ${this.gameState.userWords.length === q.answer.length ? `
                     <button onclick="app.checkScrambleAnswer()" class="w-full bg-primary text-white font-bold py-4 rounded-2xl shadow-lg active:scale-95 transition animate-slide-up">
@@ -1387,8 +2068,8 @@ class App {
     renderVerbRace(q) {
         return q.options.map((opt, idx) => `
             <button onclick="app.handleMCQClick(this)" data-answer="${String(opt).replace(/"/g, "&quot;")}" 
-                    class="w-full p-5 rounded-[2rem] border-2 border-gray-100 hover:border-secondary hover:bg-secondary/5 text-lg font-bold transition active:scale-95 animate-slide-up bg-white group"
-                    style="animation-delay: ${idx * 0.1}s">
+                class="w-full p-5 rounded-[2rem] border-2 border-gray-100 hover:border-secondary hover:bg-secondary/5 text-lg font-bold transition active:scale-95 animate-slide-up bg-white group"
+                style="animation-delay: ${idx * 0.1}s">
                 <div class="flex justify-between items-center">
                     <span>${opt}</span>
                     <span class="opacity-0 group-hover:opacity-100 transition-opacity">🏃‍♂️</span>
@@ -1409,7 +2090,11 @@ class App {
     }
 
     handleMCQClick(btn) {
-        this.checkAnswer(btn.getAttribute('data-answer'));
+        if (this.gameState && this.gameState.isBattle) {
+            this.checkBattleAnswer(btn.getAttribute('data-answer'));
+        } else {
+            this.checkAnswer(btn.getAttribute('data-answer'));
+        }
     }
 
     checkScrambleAnswer() {
@@ -1444,7 +2129,7 @@ class App {
         const { selectedLeft, selectedRight, matchedPairs } = this.gameState.matchingData;
 
         return `
-            <div class="space-y-6">
+                < div class="space-y-6" >
                 <p class="text-center text-gray-500 text-sm">Match English to Urdu</p>
                 <div class="grid grid-cols-2 gap-4">
                     <!-- Left Column (English) -->
@@ -1484,9 +2169,10 @@ class App {
                     <button onclick="app.checkAnswer('all matched', true)" class="w-full bg-primary text-white font-bold py-4 rounded-2xl shadow-lg active:scale-95 transition animate-bounce-in">
                         Continue
                     </button>
-                ` : ''}
-            </div>
-        `;
+                ` : ''
+            }
+            </div >
+                `;
     }
 
     handleMatchClick(target) {

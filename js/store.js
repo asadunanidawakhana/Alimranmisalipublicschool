@@ -5,6 +5,27 @@
 
 const STORAGE_KEY = 'al_imran_tense_learner_data';
 
+// Initialize Firebase
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
+import { getDatabase, ref, set, onValue, query, orderByChild, limitToLast } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-database.js";
+
+const firebaseConfig = {
+    apiKey: "AIzaSyCeEtKegRVHBD87StkUy8jrd9xO39sF5gY",
+    authDomain: "alimran-85a51.firebaseapp.com",
+    projectId: "alimran-85a51",
+    storageBucket: "alimran-85a51.firebasestorage.app",
+    messagingSenderId: "585230160066",
+    appId: "1:585230160066:web:97cde84dfea445b28e2b5b",
+    measurementId: "G-E85JBBD68P"
+};
+
+const app = initializeApp(firebaseConfig);
+export const db = getDatabase(app);
+export const socket = null; // Removed, kept for backwards compatibility in UI until removed
+
+// Import Badges
+import { badges } from './data/badges.js';
+
 const getUUID = () => {
     try {
         return crypto.randomUUID();
@@ -22,6 +43,8 @@ const INITIAL_DATA = {
         xp: 0,
         streak: 0,
         lastActive: null,
+        lastLoginDate: null,
+        lastRewardClaimed: null,
         badges: [],
         coins: 100, // Start with some coins
         hearts: 5,
@@ -81,6 +104,39 @@ const INITIAL_DATA = {
 class Store {
     constructor() {
         this.data = this.load();
+        this.setupSocketListeners();
+    }
+
+    setupSocketListeners() {
+        // Renamed concept, now sets up Firebase listeners
+        const topUsersRef = query(ref(db, 'users'), orderByChild('xp'), limitToLast(50));
+        onValue(topUsersRef, (snapshot) => {
+            if (snapshot.exists()) {
+                const users = [];
+                snapshot.forEach((childSnapshot) => {
+                    users.push(childSnapshot.val());
+                });
+                // Snapshot ordered by xp ascending, we want descending
+                this.data.leaderboard = users.reverse();
+                window.dispatchEvent(new CustomEvent('leaderboard-updated'));
+            } else {
+                this.data.leaderboard = [];
+                window.dispatchEvent(new CustomEvent('leaderboard-updated'));
+            }
+        });
+    }
+
+    syncWithBackend() {
+        if (this.data.user.id && this.data.user.name) {
+            set(ref(db, 'users/' + this.data.user.id), {
+                id: this.data.user.id,
+                name: this.data.user.name,
+                level: this.data.user.level,
+                xp: this.data.user.xp,
+                selectedAvatar: this.data.user.selectedAvatar,
+                lastActive: Date.now()
+            }).catch(error => console.error("Firebase sync error:", error));
+        }
     }
 
     load() {
@@ -114,6 +170,49 @@ class Store {
     updateUser(updates) {
         this.data.user = { ...this.data.user, ...updates };
         this.save();
+        this.syncWithBackend(); // Sync name/avatar changes
+    }
+
+    checkDailyStreak() {
+        const todayStr = new Date().toDateString(); // e.g., "Mon Sep 09 2024"
+        const lastLoginStr = this.data.user.lastLoginDate;
+
+        if (lastLoginStr !== todayStr) {
+            if (lastLoginStr) {
+                // Check if last login was yesterday
+                const yesterday = new Date();
+                yesterday.setDate(yesterday.getDate() - 1);
+
+                if (lastLoginStr === yesterday.toDateString()) {
+                    // Valid streak
+                    this.data.user.streak += 1;
+                } else {
+                    // Streak broken
+                    this.data.user.streak = 1;
+                }
+            } else {
+                // First login
+                this.data.user.streak = 1;
+            }
+
+            this.data.user.lastLoginDate = todayStr;
+            this.save();
+            this.checkAndAwardBadges(); // Check streak-based badges
+            return true; // Indicates it's a new day (eligible for reward popup)
+        }
+        return false; // Already logged in today
+    }
+
+    claimDailyReward() {
+        const todayStr = new Date().toDateString();
+        if (this.data.user.lastRewardClaimed !== todayStr) {
+            this.data.user.lastRewardClaimed = todayStr;
+            const rewardCoins = 10 + (this.data.user.streak * 5); // 15, 20, 25...
+            this.addCoins(rewardCoins);
+            this.save();
+            return rewardCoins;
+        }
+        return 0;
     }
 
     addXP(amount) {
@@ -130,11 +229,23 @@ class Store {
             // Emit level up event
             window.dispatchEvent(new CustomEvent('level-up', { detail: { level: this.data.user.level } }));
         }
+
+        this.checkAndAwardBadges(); // Check XP-based badges
         this.save();
+
+        // Broadcast stat changes immediately
+        if (socket) {
+            socket.emit('update_stats', {
+                id: this.data.user.id,
+                level: this.data.user.level,
+                xp: this.data.user.xp
+            });
+        }
     }
 
     addCoins(amount) {
         this.data.user.coins += amount;
+        this.checkAndAwardBadges(); // Check Coin-based badges
         this.save();
         window.dispatchEvent(new CustomEvent('coins-updated', { detail: { coins: this.data.user.coins } }));
     }
@@ -161,6 +272,37 @@ class Store {
             timestamp: Date.now()
         });
         this.save();
+    }
+
+    checkAndAwardBadges() {
+        if (!this.data.user.badges) this.data.user.badges = [];
+
+        let newBadgeUnlocked = false;
+
+        badges.forEach(badge => {
+            if (!this.data.user.badges.includes(badge.id)) {
+                let meetsRequirement = false;
+
+                if (badge.requirementType === 'xp' && this.data.user.xp >= badge.requirementValue) {
+                    meetsRequirement = true;
+                } else if (badge.requirementType === 'streak' && this.data.user.streak >= badge.requirementValue) {
+                    meetsRequirement = true;
+                } else if (badge.requirementType === 'coins' && this.data.user.coins >= badge.requirementValue) {
+                    meetsRequirement = true;
+                }
+
+                if (meetsRequirement) {
+                    this.data.user.badges.push(badge.id);
+                    newBadgeUnlocked = true;
+                    // Dispatch an event so the app can show a toast/notification
+                    window.dispatchEvent(new CustomEvent('badge-unlocked', { detail: badge }));
+                }
+            }
+        });
+
+        if (newBadgeUnlocked) {
+            this.save();
+        }
     }
 }
 
