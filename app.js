@@ -11,6 +11,8 @@ import { badges } from './js/data/badges.js';
 import { activePassive } from './js/data/active_passive.js';
 import { apQuestions } from './js/data/ap_questions.js';
 import { shopItems } from './js/data/shop_items.js';
+import { directIndirect } from './js/data/direct_indirect.js';
+import { diQuestions } from './js/data/di_questions.js';
 
 class App {
     constructor() {
@@ -18,7 +20,7 @@ class App {
         this.currentView = null;
         this.gameState = {
             isTest: false,
-            mode: 'tenses', // 'tenses' or 'activePassive'
+            mode: 'tenses', // 'tenses', 'activePassive', or 'directIndirect'
             tenseId: null,
             questions: [],
             currentIndex: 0,
@@ -257,6 +259,12 @@ class App {
                 case 'ap-detail':
                     await this.renderActivePassiveDetail(params.id);
                     break;
+                case 'learn-di':
+                    await this.renderLearn('directIndirect');
+                    break;
+                case 'di-detail':
+                    await this.renderDirectIndirectDetail(params.id);
+                    break;
                 case 'game':
                     await this.showDifficultySelection(params.id, params.mode || 'tenses');
                     break;
@@ -429,10 +437,10 @@ class App {
                                 <p class="font-bold text-sm">Future</p>
                                 <p class="text-[10px] text-gray-500">${store.data.progress.tenses.simpleFuture}% Complete</p>
                             </div>
-                            <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center text-center cursor-pointer active:scale-95 transition" onclick="app.navigate('learn-tenses')">
-                                <div class="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center text-purple-600 text-xl font-bold mb-3">...</div>
-                                <p class="font-bold text-sm">More</p>
-                                <p class="text-[10px] text-gray-500">View All</p>
+                            <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center text-center cursor-pointer active:scale-95 transition" onclick="app.navigate('learn-di')">
+                                <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center text-blue-600 text-xl font-bold mb-3">🗣️</div>
+                                <p class="font-bold text-sm">Narration</p>
+                                <p class="text-[10px] text-gray-500">New Topic</p>
                             </div>
                         </div>
                     </div>
@@ -466,6 +474,13 @@ class App {
                         <p class="mt-4 text-xs font-bold text-secondary px-4 py-2 bg-secondary/5 rounded-full">8 Lessons</p>
                     </div>
 
+                    <div class="bg-white p-8 rounded-[40px] shadow-sm border-2 border-primary/5 flex flex-col items-center text-center cursor-pointer active:scale-95 transition-all hover:bg-primary/5 group" onclick="app.navigate('learn-di')">
+                        <div class="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center text-primary text-5xl mb-6 group-hover:scale-110 transition-transform">🗣️</div>
+                        <h3 class="text-2xl font-bold text-gray-800 mb-2">Direct / Indirect</h3>
+                        <p class="text-gray-500 font-urdu">ڈائریکٹ ان ڈائریکٹ</p>
+                        <p class="mt-4 text-xs font-bold text-primary px-4 py-2 bg-primary/5 rounded-full">6 Lessons</p>
+                    </div>
+
                     <!-- Multiplayer Option -->
                     <div class="p-8 rounded-[40px] shadow-sm border border-orange-200/50 flex flex-col items-center text-center cursor-pointer active:scale-95 transition-all hover:border-orange-300 group" style="background: linear-gradient(135deg, #ef4444, #f97316);" onclick="app.renderMatchmaking()">
                         <div class="w-24 h-24 rounded-full flex items-center justify-center text-white text-5xl mb-6 group-hover:scale-110 transition-transform shadow-lg bg-white/20 border-4 border-white/30">⚔️</div>
@@ -481,10 +496,23 @@ class App {
     }
 
     async renderLearn(mode = 'tenses') {
-        const data = mode === 'tenses' ? tenses : activePassive;
+        let data, title, detailRoute;
+
+        if (mode === 'tenses') {
+            data = tenses;
+            title = 'Tense Learning';
+            detailRoute = 'tense-detail';
+        } else if (mode === 'activePassive') {
+            data = activePassive;
+            title = 'Active/Passive Voice';
+            detailRoute = 'ap-detail';
+        } else {
+            data = directIndirect;
+            title = 'Direct/Indirect Speech';
+            detailRoute = 'di-detail';
+        }
+
         const progressData = store.data.progress[mode] || {};
-        const title = mode === 'tenses' ? 'Tense Learning' : 'Active/Passive Voice';
-        const detailRoute = mode === 'tenses' ? 'tense-detail' : 'ap-detail';
 
         this.container.innerHTML = `
             <div class="flex flex-col min-h-screen bg-soft-gray animate-fade-in pb-24">
@@ -582,6 +610,72 @@ class App {
                 <div class="fixed bottom-24 left-4 right-4 animate-slide-up">
                     <button onclick="app.showDifficultySelection('${id}', 'activePassive')" class="w-full bg-secondary text-white font-bold py-4 rounded-3xl shadow-lg active:scale-95 transition">
                         Practice with game
+                    </button>
+                </div>
+
+                ${this.getBottomNav()}
+            </div>
+        `;
+    }
+
+    async renderDirectIndirectDetail(id) {
+        const item = directIndirect[id];
+        if (!item) return this.navigate('learn-di');
+
+        this.container.innerHTML = `
+            <div class="flex flex-col min-h-screen bg-soft-gray animate-fade-in pb-24">
+                <div class="bg-white p-4 flex items-center justify-between shadow-sm sticky top-0 z-10">
+                    <div class="flex items-center space-x-4">
+                        <button onclick="app.navigate('learn-di')" class="p-2 -ml-2 text-xl">←</button>
+                        <div>
+                            <h2 class="text-lg font-bold leading-none">${item.name}</h2>
+                            <p class="text-xs text-gray-500">Narration Rules</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-4 space-y-6 overflow-y-auto">
+                    <!-- Formulas -->
+                    <div class="space-y-4 animate-slide-up">
+                        <div class="bg-white p-6 rounded-3xl shadow-sm border border-primary/20 border-2">
+                            <h3 class="text-xs font-bold text-primary uppercase tracking-wider mb-2">Structure / فارمولا</h3>
+                            <p class="text-xl font-bold text-gray-800">${item.formula}</p>
+                        </div>
+                    </div>
+
+                    <!-- Rules -->
+                    <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 animate-fade-in">
+                        <h4 class="font-bold mb-3">Narration Rules / اصول</h4>
+                        <p class="text-gray-700 leading-relaxed mb-4">${item.rules.english}</p>
+                        <p class="text-gray-800 font-urdu border-t pt-4">${item.rules.urdu}</p>
+                    </div>
+
+                    <!-- Examples -->
+                    <div class="space-y-4 animate-fade-in">
+                        <h4 class="font-bold px-2">Examples / مثالیں</h4>
+                        ${item.examples.map((ex, idx) => `
+                            <div class="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 space-y-3">
+                                <div class="flex justify-between items-start">
+                                    <div class="w-full">
+                                        <div class="flex items-center">
+                                            <span class="text-[10px] font-bold bg-gray-100 text-gray-500 px-2 py-0.5 rounded mr-2">DIRECT</span>
+                                            <p class="font-bold text-gray-800">${ex.direct}</p>
+                                        </div>
+                                        <div class="flex items-center mt-3 pt-3 border-t border-gray-50">
+                                            <span class="text-[10px] font-bold bg-primary/10 text-primary px-2 py-0.5 rounded mr-2">INDIRECT</span>
+                                            <p class="font-bold text-primary">${ex.indirect}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <p class="text-sm text-gray-500 font-urdu text-right">${ex.urdu}</p>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <div class="fixed bottom-24 left-4 right-4 animate-slide-up">
+                    <button onclick="app.showDifficultySelection('${id}', 'directIndirect')" class="w-full bg-primary text-white font-bold py-4 rounded-3xl shadow-lg active:scale-95 transition">
+                        Practice Narration
                     </button>
                 </div>
 
@@ -757,7 +851,15 @@ class App {
     }
 
     async startGame(tenseId, mode = 'tenses', difficulty = 'easy') {
-        let pool = mode === 'tenses' ? questions : apQuestions;
+        let pool;
+        if (mode === 'tenses') {
+            pool = questions;
+        } else if (mode === 'activePassive') {
+            pool = apQuestions;
+        } else {
+            pool = diQuestions;
+        }
+
         let tenseQuestions = [...(pool[tenseId] || [])];
 
         // Filter by difficulty
@@ -772,9 +874,11 @@ class App {
         if (mode === 'tenses') {
             const dynamicQuestions = this.generateDynamicQuestions(tenseId, difficulty);
             tenseQuestions = [...tenseQuestions, ...dynamicQuestions];
-        } else {
-            // For AP, we can also generate dynamic questions from activePassive examples
+        } else if (mode === 'activePassive') {
             const dynamicQuestions = this.generateAPDynamicQuestions(tenseId, difficulty);
+            tenseQuestions = [...tenseQuestions, ...dynamicQuestions];
+        } else {
+            const dynamicQuestions = this.generateDIDynamicQuestions(tenseId, difficulty);
             tenseQuestions = [...tenseQuestions, ...dynamicQuestions];
         }
 
@@ -892,6 +996,39 @@ class App {
         return finalOptions.sort(() => Math.random() - 0.5);
     }
 
+    generateDIDynamicQuestions(tenseId, difficulty = 'easy') {
+        const item = directIndirect[tenseId];
+        if (!item || !item.examples) return [];
+        return item.examples.map((ex, idx) => ({
+            id: `di_dyn_${tenseId}_${idx}`,
+            type: 'mcq',
+            difficulty,
+            question: `Change to Indirect: "${ex.direct}"`,
+            options: this.generateDIOptions(ex.indirect, tenseId),
+            answer: ex.indirect,
+            urdu: ex.urdu
+        }));
+    }
+
+    generateDIOptions(correctAnswer, tenseId) {
+        const options = [correctAnswer];
+        const otherExamples = Object.values(directIndirect)
+            .flatMap(t => t.examples)
+            .filter(ex => ex.indirect !== correctAnswer);
+
+        const distractors = [...otherExamples]
+            .sort(() => Math.random() - 0.5)
+            .slice(0, 3)
+            .map(ex => ex.indirect);
+
+        const finalOptions = Array.from(new Set([...options, ...distractors]));
+        while (finalOptions.length < 4) {
+            const extra = 'He said that he was busy.';
+            if (!finalOptions.includes(extra)) finalOptions.push(extra);
+        }
+        return finalOptions.sort(() => Math.random() - 0.5);
+    }
+
     generateOptions(correctAnswer, tenseId) {
         const options = [correctAnswer];
         const otherExamples = Object.values(tenses)
@@ -926,10 +1063,16 @@ class App {
                 const dq = this.generateDynamicQuestions(tenseId, difficulty);
                 allQuestions = [...allQuestions, ...q, ...dq];
             });
-        } else {
+        } else if (mode === 'activePassive') {
             Object.keys(activePassive).forEach(tenseId => {
                 const q = (apQuestions[tenseId] || []).filter(item => item.difficulty === difficulty);
                 const dq = this.generateAPDynamicQuestions(tenseId, difficulty);
+                allQuestions = [...allQuestions, ...q, ...dq];
+            });
+        } else {
+            Object.keys(directIndirect).forEach(tenseId => {
+                const q = (diQuestions[tenseId] || []).filter(item => item.difficulty === difficulty);
+                const dq = this.generateDIDynamicQuestions(tenseId, difficulty);
                 allQuestions = [...allQuestions, ...q, ...dq];
             });
         }
@@ -945,7 +1088,7 @@ class App {
             isTest: true,
             mode: mode,
             difficulty,
-            tenseId: mode === 'tenses' ? 'Mixed Tense Test' : 'Mixed Voice Test',
+            tenseId: mode === 'tenses' ? 'Mixed Tense Test' : (mode === 'activePassive' ? 'Mixed Voice Test' : 'Mixed Narration Test'),
             questions: testPool,
             currentIndex: 0,
             score: 0,
@@ -2235,6 +2378,15 @@ class App {
                             <p class="text-gray-500 text-sm">Active & Passive Voice conversion</p>
                         </div>
                         <span class="text-secondary text-xl">→</span>
+                    </button>
+
+                    <button onclick="app.showDifficultySelection('directIndirect', 'directIndirect', true)" class="w-full bg-white p-6 rounded-[32px] shadow-sm border-2 border-primary/5 hover:border-primary/20 flex items-center space-x-4 active:scale-95 transition-all text-left group">
+                        <div class="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center text-2xl group-hover:scale-110 transition">🗣️</div>
+                        <div class="flex-1">
+                            <h4 class="font-bold text-gray-800 text-lg">Narration Test</h4>
+                            <p class="text-gray-500 text-sm">Direct & Indirect Speech questions</p>
+                        </div>
+                        <span class="text-primary text-xl">→</span>
                     </button>
                     
                     <p class="text-center text-gray-400 text-xs mt-8">Note: You can take only one test every 24 hours.</p>
