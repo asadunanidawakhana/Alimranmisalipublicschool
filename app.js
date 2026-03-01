@@ -272,6 +272,9 @@ class App {
                 case 'profile':
                     await this.renderProfile();
                     break;
+                case 'battle':
+                    this.renderBattleQuestion();
+                    break;
                 default:
                     this.container.innerHTML = `<div class="p-10 text-center">View "${view}" coming soon!</div>`;
             }
@@ -1158,8 +1161,9 @@ class App {
     }
 
     renderScramble(q) {
-        if (!this.gameState.scrambledWords) {
-            this.gameState.scrambledWords = [...q.answer].sort(() => Math.random() - 0.5);
+        if (!this.gameState.scrambledWords || this.gameState.scrambledWords.length === 0) {
+            const words = Array.isArray(q.answer) ? q.answer : String(q.sentence || q.question).split(' ');
+            this.gameState.scrambledWords = [...words].sort(() => Math.random() - 0.5);
             this.gameState.userWords = [];
         }
 
@@ -1211,15 +1215,16 @@ class App {
         } else if (action === 'remove') {
             this.gameState.userWords.splice(payload, 1);
         }
-        this.renderQuestion();
+
+        if (this.gameState && this.gameState.isBattle) {
+            this.renderBattleQuestion();
+        } else {
+            this.renderQuestion();
+        }
     }
 
     checkScramble() {
-        if (!this.gameState || !this.gameState.questions) return;
-        const q = this.gameState.questions[this.gameState.currentIndex];
-        const correct = Array.isArray(q.answer) ? q.answer.join(' ') : q.answer;
-        const user = this.gameState.userWords.join(' ');
-        this.checkAnswer(null, user === correct);
+        this.checkScrambleAnswer();
     }
 
     renderVerbRace(q) {
@@ -1288,7 +1293,11 @@ class App {
                     this.gameState.matchingData.selectedRight = null;
                     this.gameState.matchingData.matchedPairs = [];
                 }
-                this.renderQuestion();
+                if (this.gameState && this.gameState.isBattle) {
+                    this.renderBattleQuestion();
+                } else {
+                    this.renderQuestion();
+                }
             }
         };
     }
@@ -1482,7 +1491,7 @@ class App {
                         ⚔️
                     </div>
                     
-                    <h2 class="text-3xl font-black mb-2 animate-pulse">Finding Opponent...</h2>
+                    <h2 class="text-3xl font-black mb-2 animate-pulse" id="match-status">Finding Opponent...</h2>
                     <p class="text-white/80 mb-12">Checking global leaderboard for worthy challengers</p>
                     
                     <div class="flex justify-between items-center bg-white/10 rounded-3xl p-4 shimmer">
@@ -1498,18 +1507,30 @@ class App {
                         <span class="text-2xl font-black text-white/50 animate-pulse">VS</span>
                         <div class="flex items-center space-x-3">
                             <div class="text-right">
-                                <p class="text-xs text-white/70">???</p>
+                                <p class="text-xs text-white/70" id="op-name-placeholder">???</p>
                             </div>
-                            <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center text-2xl animate-pulse">
+                            <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center text-2xl animate-pulse" id="op-avatar-placeholder">
                                 ❓
                             </div>
                         </div>
                     </div>
 
-                    <button onclick="app.cancelMatchmaking()" class="mt-12 text-white/50 hover:text-white font-bold transition active:scale-95">Cancel</button>
+                    <div id="bot-match-btn" class="hidden mt-8">
+                         <button onclick="app.startBotMatch()" class="w-full bg-white text-primary font-black py-4 rounded-2xl shadow-xl active:scale-95 transition animate-slide-up">
+                            PLAY AGAINST A.I. 🤖
+                         </button>
+                    </div>
+
+                    <button onclick="app.cancelMatchmaking()" class="mt-8 text-white/50 hover:text-white font-bold transition active:scale-95">Cancel</button>
                 </div>
             </div>
         `;
+
+        // Show bot button after 4 seconds
+        this.botSearchTimeout = setTimeout(() => {
+            const btn = document.getElementById('bot-match-btn');
+            if (btn) btn.classList.remove('hidden');
+        }, 4000);
 
         const myId = store.data.user.id;
         const myData = {
@@ -1574,7 +1595,8 @@ class App {
             playerNum,
             myScore: 0,
             opponent: opponentData,
-            opponentScore: 0
+            opponentScore: 0,
+            timeLeft: 120
         };
 
         const matchRef = ref(db, 'active_matches/' + roomId);
@@ -1585,32 +1607,105 @@ class App {
         this.matchListener = onValue(matchRef, (snap) => {
             const val = snap.val();
             if (!val) {
-                // Room was deleted, opponent left
-                this.endBattle(true, 'opponent_left');
+                if (!this.battleState.opponent.isBot) {
+                    this.endBattle(true, 'opponent_left');
+                }
                 return;
             }
 
             const myData = playerNum === 1 ? val.p1 : val.p2;
             const opData = playerNum === 1 ? val.p2 : val.p1;
 
+            this.battleState.opponentScore = opData.score;
+            this.battleState.myScore = myData.score;
+            this.updateBattleUI();
+
             if (opData.score >= 6) {
-                this.battleState.opponentScore = opData.score;
-                this.updateBattleUI();
                 this.endBattle(false, 'score_reached');
             } else if (myData.score >= 6) {
-                this.battleState.myScore = myData.score;
-                this.updateBattleUI();
                 this.endBattle(true, 'score_reached');
-            } else {
-                this.battleState.opponentScore = opData.score;
-                this.updateBattleUI();
             }
         });
+
+        // Start Battle Timer
+        this.battleTimerInterval = setInterval(() => {
+            if (!this.battleState) {
+                clearInterval(this.battleTimerInterval);
+                return;
+            }
+            this.battleState.timeLeft--;
+            this.updateBattleTimerUI();
+
+            if (this.battleState.timeLeft <= 0) {
+                clearInterval(this.battleTimerInterval);
+                const iWon = this.battleState.myScore > this.battleState.opponentScore;
+                this.endBattle(iWon, 'time_up');
+            }
+        }, 1000);
+
+        if (opponentData.isBot) {
+            this.simulateBotMoves();
+        }
 
         this.startBattleGame();
     }
 
+    startBotMatch() {
+        const roomId = 'bot_room_' + Date.now();
+        const botData = {
+            id: 'bot_' + Math.floor(Math.random() * 1000),
+            name: 'Grammar Bot 🤖',
+            level: Math.max(1, store.data.user.level + (Math.floor(Math.random() * 3) - 1)),
+            selectedAvatar: 'bot_pro',
+            isBot: true
+        };
+
+        const myData = {
+            id: store.data.user.id,
+            name: store.data.user.name || 'Student',
+            level: store.data.user.level || 1,
+            selectedAvatar: store.data.user.selectedAvatar || 'default',
+            score: 0
+        };
+
+        const matchData = {
+            roomId: roomId,
+            p1: myData,
+            p2: { ...botData, score: 0 }
+        };
+
+        set(ref(db, 'active_matches/' + roomId), matchData).then(() => {
+            this.startMatchAs(roomId, 1, botData);
+        });
+    }
+
+    simulateBotMoves() {
+        if (!this.battleState || !this.battleState.opponent.isBot) return;
+
+        this.botInterval = setInterval(() => {
+            if (!this.battleState || !this.battleState.opponent.isBot) {
+                clearInterval(this.botInterval);
+                return;
+            }
+
+            // Bot answers every 5-9 seconds
+            if (Math.random() > 0.4) { // 60% chance to score
+                this.battleState.opponentScore++;
+                const opNum = 2; // Bot is always P2 in bot matches
+                const scorePath = `active_matches/${this.battleState.roomId}/p${opNum}/score`;
+                set(ref(db, scorePath), this.battleState.opponentScore);
+            }
+
+            if (this.battleState && this.battleState.opponentScore >= 6) {
+                clearInterval(this.botInterval);
+            }
+        }, 5000 + Math.random() * 4000);
+    }
+
     cancelMatchmaking() {
+        if (this.botSearchTimeout) clearTimeout(this.botSearchTimeout);
+        if (this.botInterval) clearInterval(this.botInterval);
+
         if (this.matchmakingListener) {
             off(ref(db, 'matchmaking/waitingRoom'), 'value', this.matchmakingListener);
             this.matchmakingListener = null;
@@ -1628,12 +1723,20 @@ class App {
     startBattleGame() {
         // Pool random 15 questions from Tenses and AP Data
         let testPool = [];
-        if (typeof tensesData !== 'undefined') {
-            Object.values(tensesData).forEach(tense => testPool = testPool.concat(tense.questions));
+
+        // Use the imported questions and apQuestions objects
+        if (typeof questions !== 'undefined') {
+            Object.values(questions).forEach(qList => testPool = testPool.concat(qList));
         }
-        if (typeof activePassiveData !== 'undefined') {
-            Object.values(activePassiveData).forEach(topic => testPool = testPool.concat(topic.questions));
+        if (typeof apQuestions !== 'undefined') {
+            Object.values(apQuestions).forEach(qList => testPool = testPool.concat(qList));
         }
+
+        // If pool is still empty (fallback), try other sources or just notify
+        if (testPool.length === 0) {
+            testPool = [{ id: 'b1', type: 'mcq', question: 'I ___ to school.', options: ['go', 'goes', 'going'], answer: 'go', urdu: 'میں سکول جاتا ہوں۔' }];
+        }
+
         testPool = testPool.sort(() => Math.random() - 0.5).slice(0, 15);
 
         this.gameState = {
@@ -1645,147 +1748,283 @@ class App {
         };
 
         this.navigate('battle');
-        this.renderBattleQuestion();
     }
 
     renderBattleQuestion() {
         if (!this.gameState || !this.gameState.questions) return this.navigate('home');
+        if (!this.battleState) return this.navigate('home');
 
         const q = this.gameState.questions[this.gameState.currentIndex];
         const opponentAvatar = shopItems.find(i => i.id === (this.battleState.opponent.selectedAvatar || 'default'))?.icon || '👤';
+        const myAvatar = shopItems.find(i => i.id === store.data.user.selectedAvatar)?.icon || '👤';
 
         this.container.innerHTML = `
-            <div class="flex flex-col min-h-screen bg-soft-gray animate-fade-in relative">
-                <!-- Battle Stats Header -->
-                <div class="bg-primary p-4 rounded-b-3xl shadow-lg relative z-20 text-white flex justify-between items-center">
-                    
-                    <!-- P1 (Me) -->
-                    <div class="flex items-center space-x-2">
-                        <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center text-xl shadow-inner text-primary relative">
-                            ${this.battleState.myScore >= 6 ? '<div class="absolute -top-2 -right-2 text-xl drop-shadow-md z-10 animate-bounce">👑</div>' : ''}
-                            ${shopItems.find(i => i.id === store.data.user.selectedAvatar)?.icon || '👤'}
-                        </div>
-                        <div class="text-left">
-                            <p class="text-[10px] uppercase font-bold text-white/70">You</p>
-                            <p class="font-black text-lg leading-none" id="battle-my-score">${this.battleState.myScore}</p>
-                        </div>
-                    </div>
+            <div class="flex flex-col min-h-screen bg-slate-950 animate-fade-in relative overflow-hidden font-sans">
+                <!-- Immersive Background Decoration -->
+                <div class="absolute inset-0 pointer-events-none overflow-hidden">
+                    <div class="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_50%_20%,rgba(59,130,246,0.15),transparent_70%)]"></div>
+                    <div class="absolute -top-24 -left-24 w-96 h-96 bg-primary/10 rounded-full blur-[100px] animate-pulse"></div>
+                    <div class="absolute -bottom-24 -right-24 w-96 h-96 bg-blue-500/10 rounded-full blur-[100px] animate-pulse" style="animation-delay: 2s"></div>
+                </div>
 
-                    <div class="font-black text-2xl italic tracking-tighter text-yellow-300">VS</div>
-
-                    <!-- P2 (Opponent) -->
-                    <div class="flex items-center space-x-2 text-right">
-                        <div>
-                            <p class="text-[10px] uppercase font-bold text-white/70">${this.battleState.opponent.name}</p>
-                            <p class="font-black text-lg leading-none text-red-200" id="battle-op-score">${this.battleState.opponentScore}</p>
+                <!-- TOP HALF: OPPONENT -->
+                <div class="h-1/2 bg-gradient-to-b from-red-600/90 to-red-900/95 p-4 flex flex-col items-center justify-start text-white relative transition-all duration-700 border-b-2 border-white/10">
+                    <!-- Opponent Stats Overlay -->
+                    <div class="absolute top-4 right-6 flex items-center space-x-3 bg-black/20 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/10">
+                        <div class="text-right">
+                            <p class="text-[10px] uppercase font-black text-white/60 leading-none">Opponent</p>
+                            <p class="font-bold text-sm">${this.battleState.opponent.name || 'Opponent'}</p>
                         </div>
-                        <div class="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center text-xl shadow-inner">
+                        <div class="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center text-2xl shadow-inner">
                             ${opponentAvatar}
                         </div>
                     </div>
+
+                    <!-- Opponent Large Score -->
+                    <div class="mt-8 flex flex-col items-center">
+                        <div class="text-7xl font-black text-white/20 italic tracking-tighter sm:text-9xl" id="battle-op-score-large">
+                            ${this.battleState.opponentScore}
+                        </div>
+                        <div class="flex space-x-2 mt-2" id="battle-op-stars">
+                            ${Array(6).fill(0).map((_, i) => `
+                                <div class="w-3 h-3 rounded-full border border-white/30 ${i < this.battleState.opponentScore ? 'bg-yellow-400 shadow-[0_0_15px_#fbbf24]' : 'bg-transparent'} transition-all duration-500"></div>
+                            `).join('')}
+                        </div>
+                    </div>
                 </div>
 
-                <!-- Progress Bars -->
-                <div class="w-full h-1.5 bg-gray-200 flex">
-                    <div id="battle-my-bar" class="h-full bg-success transition-all duration-500" style="width: ${(this.battleState.myScore / 6) * 50}%"></div>
-                    <div class="flex-1"></div>
-                    <div id="battle-op-bar" class="h-full bg-error transition-all duration-500" style="width: ${(this.battleState.opponentScore / 6) * 50}%"></div>
-                </div>
-
-                <!-- Game Content -->
-                <div class="flex-1 p-6 flex flex-col pt-8">
-                    <!-- Target Sentence -->
-                    <div class="bg-white p-6 rounded-[2rem] shadow-sm mb-8 border border-gray-100 relative">
-                        <span class="absolute -top-3 left-6 bg-primary text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-sm uppercase tracking-wider">
-                            ${q.type === 'mcq' ? 'Choose Correct' : q.type === 'fill' ? 'Fill Blank' : q.type === 'verb_race' ? 'Quick Choose' : 'Build Sentence'}
-                        </span>
-                        
-                        <p class="text-2xl text-gray-800 font-medium leading-relaxed">${q.sentence.replace('___', '<span class="inline-block w-16 border-b-2 border-primary translate-y-1"></span>')}</p>
-                        ${q.urdu ? `<p class="text-primary/60 font-urdu mt-4 text-xl rtl text-right border-t border-gray-50 pt-4" dir="rtl">${q.urdu}</p>` : ''}
+                <!-- BOTTOM HALF: PLAYER -->
+                <div class="h-1/2 bg-gradient-to-t from-blue-600/90 to-blue-900/95 p-4 flex flex-col items-center justify-end text-white relative transition-all duration-700 border-t-2 border-white/10">
+                    <!-- My Stats Overlay -->
+                    <div class="absolute bottom-4 left-6 flex items-center space-x-3 bg-black/20 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/10">
+                        <div class="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-2xl shadow-lg text-blue-600">
+                             ${myAvatar}
+                        </div>
+                        <div class="text-left">
+                            <p class="text-[10px] uppercase font-black text-white/60 leading-none">You</p>
+                            <p class="font-bold text-sm">Level ${store.data.user.level}</p>
+                        </div>
                     </div>
 
-                    <!-- Options -->
-                    <div class="space-y-3 flex-1 relative z-10 w-full" id="battle-game-area">
-                        ${q.type === 'mcq' ? this.renderMCQ(q) :
+                    <!-- My Large Score -->
+                    <div class="mb-8 flex flex-col items-center">
+                        <div class="flex space-x-2 mb-2" id="battle-my-stars">
+                            ${Array(6).fill(0).map((_, i) => `
+                                <div class="w-3 h-3 rounded-full border border-white/30 ${i < this.battleState.myScore ? 'bg-yellow-400 shadow-[0_0_15px_#fbbf24]' : 'bg-transparent'} transition-all duration-500"></div>
+                            `).join('')}
+                        </div>
+                        <div class="text-7xl font-black text-white/20 italic tracking-tighter sm:text-9xl" id="battle-my-score-large">
+                            ${this.battleState.myScore}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CENTRAL BATTLE HUB -->
+                <div class="absolute inset-0 flex items-center justify-center p-4 pt-20 pb-40 overflow-y-auto z-[80] scroll-smooth">
+                    <div class="w-full max-w-xl md:max-w-2xl mb-20">
+                        <div class="bg-white rounded-[2rem] md:rounded-[3rem] shadow-[0_25px_70px_-15px_rgba(0,0,0,0.6)] overflow-hidden border-b-8 border-gray-200 animate-slide-up transform perspective-1000">
+                            <!-- Hub Header -->
+                            <div class="bg-gray-50 px-6 py-4 flex justify-between items-center border-b border-gray-100">
+                                <div class="flex items-center space-x-2">
+                                     <span class="text-xl">⏳</span>
+                                     <span id="battle-timer" class="font-black text-primary text-xl">${this.battleState.timeLeft}s</span>
+                                </div>
+                                <span class="bg-primary/10 text-primary text-[10px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest">
+                                    ${q.type === 'mcq' ? 'Multiple Choice' : q.type === 'fill' ? 'Fill Gap' : 'Sentence Builder'}
+                                </span>
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                                    <span class="text-[10px] font-black text-gray-400 uppercase tracking-tighter">BATTLE LIVE</span>
+                                </div>
+                            </div>
+
+                            <!-- Question Content -->
+                            <div class="p-8">
+                                <div class="text-center mb-6">
+                                    <p class="text-xl md:text-3xl text-gray-800 font-extrabold leading-tight mb-4">
+                                        ${String(q.sentence || q.question || '...').replace(/_{3,}/g, '<span class="inline-block w-12 md:w-16 border-b-4 border-primary translate-y-1 mx-1"></span>')}
+                                    </p>
+                                    ${q.urdu ? `
+                                        <div class="inline-block px-5 py-2 bg-primary/5 rounded-2xl">
+                                            <p class="text-primary/80 font-urdu text-xl md:text-2xl rtl font-bold leading-relaxed" dir="rtl">${q.urdu}</p>
+                                        </div>
+                                    ` : ''}
+                                </div>
+
+                                <!-- Dynamic Game Area -->
+                                <div id="battle-game-area" class="space-y-2 min-h-[140px] flex flex-col justify-center">
+                                    ${q.type === 'mcq' ? this.renderMCQ(q) :
                 q.type === 'fill' ? this.renderFillBlank(q) :
                     q.type === 'scramble' ? this.renderScramble(q) :
                         q.type === 'verb_race' ? this.renderVerbRace(q) :
                             q.type === 'match_pairs' ? this.renderMatchPairs(q) : ''}
+                                </div>
+                            </div>
+                            
+                             <!-- VS Footer with Names and Avatars -->
+                            <div class="px-6 py-4 md:py-6 bg-gray-50 flex justify-between items-center border-t border-gray-100">
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-blue-100 flex items-center justify-center text-xl md:text-2xl shadow-sm border border-blue-200">${myAvatar}</div>
+                                    <div class="flex flex-col">
+                                        <span class="text-[10px] md:text-xs font-black uppercase text-gray-400">Player</span>
+                                        <span class="text-xs md:text-sm font-bold text-gray-700 truncate max-w-[70px] md:max-w-[120px]">${store.data.user.name || 'YOU'}</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="w-10 h-10 bg-gray-900 border-4 border-white rounded-full flex items-center justify-center shadow-xl transform hover:scale-110 transition-transform">
+                                    <span class="text-[10px] md:text-xs font-black italic text-yellow-500">VS</span>
+                                </div>
+
+                                <div class="flex items-center space-x-3 flex-row-reverse space-x-reverse text-right text-right">
+                                    <div class="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-red-100 flex items-center justify-center text-xl md:text-2xl shadow-sm border border-red-200">${opponentAvatar}</div>
+                                    <div class="flex flex-col">
+                                        <span class="text-[10px] md:text-xs font-black uppercase text-gray-400">Opponent</span>
+                                        <span class="text-xs md:text-sm font-bold text-gray-700 truncate max-w-[70px] md:max-w-[120px]">${this.battleState.opponent.name || 'Opponent'}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         `;
 
         if (q.type === 'fill') {
-            document.getElementById('fill-input').focus();
-            document.getElementById('fill-input').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') this.checkBattleAnswer(document.getElementById('fill-input').value.trim());
-            });
+            const fillInp = document.getElementById('fill-input');
+            if (fillInp) {
+                fillInp.focus();
+                fillInp.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') this.checkBattleAnswer(fillInp.value.trim());
+                });
+            }
         }
+    }
+
+    renderMCQ(q) {
+        return q.options.map((opt, idx) => `
+            <button onclick="app.handleMCQClick(this)" data-answer="${String(opt).replace(/"/g, "&quot;")}" 
+                    class="w-full p-3.5 rounded-2xl border-2 border-gray-100 bg-white text-gray-800 font-bold text-lg shadow-sm transform transition-all hover:border-primary hover:bg-primary/5 hover:scale-[1.02] active:scale-95 animate-slide-up"
+                    style="animation-delay: ${idx * 0.1}s">
+                <span class="pointer-events-none lowercase first-letter:uppercase text-base">${opt}</span>
+            </button>
+        `).join('');
+    }
+
+    renderFillBlank(q) {
+        return `
+            <div class="space-y-4 animate-slide-up">
+                <div class="relative">
+                    <input type="text" id="fill-input" 
+                           class="w-full p-5 rounded-3xl border-2 border-gray-100 focus:border-primary outline-none text-xl font-bold text-center bg-gray-50/50 shadow-inner placeholder:text-gray-300 transition-all" 
+                           placeholder="Type your answer...">
+                    <div class="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                         <span class="text-2xl opacity-20">✍️</span>
+                    </div>
+                </div>
+                <button onclick="app.checkBattleAnswer(document.getElementById('fill-input').value.trim())" 
+                        class="w-full bg-primary text-white font-black py-4 rounded-3xl shadow-[0_10px_20px_-5px_rgba(var(--primary-rgb),0.4)] active:scale-95 transition-all text-lg tracking-widest">
+                    SUBMIT
+                </button>
+            </div>
+        `;
     }
 
     updateBattleUI() {
-        const myScoreEl = document.getElementById('battle-my-score');
-        const opScoreEl = document.getElementById('battle-op-score');
-        const myBarEl = document.getElementById('battle-my-bar');
-        const opBarEl = document.getElementById('battle-op-bar');
+        const myScoreLarge = document.getElementById('battle-my-score-large');
+        const opScoreLarge = document.getElementById('battle-op-score-large');
+        const myStars = document.getElementById('battle-my-stars');
+        const opStars = document.getElementById('battle-op-stars');
 
-        if (myScoreEl) myScoreEl.innerText = this.battleState.myScore;
-        if (opScoreEl) opScoreEl.innerText = this.battleState.opponentScore;
-        if (myBarEl) myBarEl.style.width = `${(this.battleState.myScore / 6) * 50}%`;
-        if (opBarEl) opBarEl.style.width = `${(this.battleState.opponentScore / 6) * 50}%`;
+        if (myScoreLarge && String(myScoreLarge.innerText) !== String(this.battleState.myScore)) {
+            myScoreLarge.innerText = this.battleState.myScore;
+            myScoreLarge.classList.add('animate-bounce');
+            setTimeout(() => myScoreLarge.classList.remove('animate-bounce'), 500);
+        }
+        if (opScoreLarge && String(opScoreLarge.innerText) !== String(this.battleState.opponentScore)) {
+            opScoreLarge.innerText = this.battleState.opponentScore;
+            opScoreLarge.classList.add('animate-bounce');
+            setTimeout(() => opScoreLarge.classList.remove('animate-bounce'), 500);
+        }
+
+        if (myStars) {
+            myStars.innerHTML = Array(6).fill(0).map((_, i) => `
+                <div class="w-3 h-3 rounded-full border border-white/30 ${i < this.battleState.myScore ? 'bg-yellow-400 shadow-[0_0_15px_#fbbf24]' : 'bg-transparent'} transition-all duration-500"></div>
+            `).join('');
+        }
+        if (opStars) {
+            opStars.innerHTML = Array(6).fill(0).map((_, i) => `
+                <div class="w-3 h-3 rounded-full border border-white/30 ${i < this.battleState.opponentScore ? 'bg-yellow-400 shadow-[0_0_15px_#fbbf24]' : 'bg-transparent'} transition-all duration-500"></div>
+            `).join('');
+        }
+    }
+
+    updateBattleTimerUI() {
+        const timerEl = document.getElementById('battle-timer');
+        if (timerEl) {
+            timerEl.innerText = `${this.battleState.timeLeft}s`;
+            if (this.battleState.timeLeft <= 10) {
+                timerEl.classList.add('text-red-500', 'animate-pulse');
+            }
+        }
     }
 
     checkBattleAnswer(userAnswer) {
-        if (!this.gameState || !this.gameState.questions) return;
+        try {
+            if (!this.gameState || !this.gameState.questions) return;
 
-        const q = this.gameState.questions[this.gameState.currentIndex];
+            const q = this.gameState.questions[this.gameState.currentIndex];
 
-        let isCorrect = false;
+            let isCorrect = false;
 
-        if (Array.isArray(q.answer)) {
-            isCorrect = q.answer.map(a => a.toLowerCase().trim()).includes(userAnswer.toLowerCase().trim());
-        } else {
-            isCorrect = userAnswer.toLowerCase().trim() === q.answer.toLowerCase().trim();
-        }
-
-        const btnContainer = document.getElementById('battle-game-area');
-        if (btnContainer) {
-            btnContainer.classList.add('pointer-events-none', 'opacity-50'); // Lock UI briefly
-        }
-
-        if (isCorrect) {
-            this.battleState.myScore++;
-            // Alert Firebase!
-            if (this.battleState) {
-                const scorePath = `active_matches/${this.battleState.roomId}/p${this.battleState.playerNum}/score`;
-                set(ref(db, scorePath), this.battleState.myScore);
+            if (Array.isArray(q.answer)) {
+                // Scramble/Match case: q.answer is array of words
+                isCorrect = userAnswer.toLowerCase().trim() === q.answer.join(' ').toLowerCase().trim();
+            } else {
+                // MCQ/Fill case: q.answer is string
+                isCorrect = userAnswer.toLowerCase().trim() === String(q.answer).toLowerCase().trim();
             }
-        } else {
-            // Apply tiny delay penalty for getting it wrong visually
-            const wrongFX = document.createElement('div');
-            wrongFX.className = 'absolute inset-0 bg-red-500/10 z-50 pointer-events-none transition-opacity duration-300';
-            document.body.appendChild(wrongFX);
-            setTimeout(() => wrongFX.remove(), 300);
-        }
 
-        // Just proceed to the next question for myself automatically so I can keep scoring
-        setTimeout(() => {
-            if (this.gameState) {
-                this.gameState.currentIndex++;
-                this.gameState.scrambledWords = null;
-                this.gameState.userWords = [];
-                // if we run out of 15 questions, reshuffle
-                if (this.gameState.currentIndex >= this.gameState.questions.length) {
-                    this.gameState.currentIndex = 0;
-                    this.gameState.questions = this.gameState.questions.sort(() => Math.random() - 0.5);
+            const btnContainer = document.getElementById('battle-game-area');
+            if (btnContainer) {
+                btnContainer.classList.add('pointer-events-none', 'opacity-50'); // Lock UI briefly
+            }
+
+            if (isCorrect) {
+                this.battleState.myScore++;
+                // Alert Firebase!
+                if (this.battleState) {
+                    const scorePath = `active_matches/${this.battleState.roomId}/p${this.battleState.playerNum}/score`;
+                    set(ref(db, scorePath), this.battleState.myScore);
                 }
-                this.renderBattleQuestion();
+
+                // Auto-proceed for correct answers in battle to keep it fast
+                setTimeout(() => {
+                    if (this.gameState) {
+                        this.gameState.currentIndex++;
+                        this.gameState.scrambledWords = null;
+                        this.gameState.userWords = [];
+                        if (this.gameState.currentIndex >= this.gameState.questions.length) {
+                            this.gameState.currentIndex = 0;
+                            this.gameState.questions = this.gameState.questions.sort(() => Math.random() - 0.5);
+                        }
+                        this.renderBattleQuestion();
+                    }
+                }, 300);
+            } else {
+                // For wrong answers, show the correct one like practice tests
+                const answerText = Array.isArray(q.answer) ? q.answer.join(' ') : String(q.answer);
+                this.showFeedback(false, answerText);
             }
-        }, isCorrect ? 300 : 800); // More delay if wrong
+        } catch (error) {
+            console.error("Error in checkBattleAnswer:", error);
+            this.renderBattleQuestion(); // Force refresh on error
+        }
     }
 
     endBattle(iWon, reason) {
+        if (this.battleTimerInterval) clearInterval(this.battleTimerInterval);
+        if (this.botInterval) clearInterval(this.botInterval);
+
         if (this.matchListener && this.battleState && reason !== 'opponent_disconnected' && reason !== 'opponent_left') {
             off(ref(db, 'active_matches/' + this.battleState.roomId), 'value', this.matchListener);
             this.matchListener = null;
@@ -2035,32 +2274,37 @@ class App {
         }
 
         return `
-            <div class="space-y-8">
-                <!--Drop Zone-->
-                <div class="min-h-[100px] p-4 bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200 flex flex-wrap gap-2 items-center justify-center">
+            <div class="space-y-6 animate-slide-up">
+                <!-- Drop Zone -->
+                <div class="min-h-[120px] p-6 bg-gray-50/50 rounded-[2rem] border-2 border-dashed border-gray-200 flex flex-wrap gap-2 items-center justify-center shadow-inner group transition-all hover:bg-white hover:border-primary/30">
                     ${this.gameState.userWords.map((word, idx) => `
-                        <span onclick="app.handleScrambleClick(${idx}, true)" class="px-4 py-2 bg-primary text-white rounded-xl font-bold cursor-pointer animate-bounce-in shadow-md">
-                            ${word}
-                        </span>
-                    `).join('')}
-                    ${this.gameState.userWords.length === 0 ? '<span class="text-gray-400 text-sm">Tap words to build sentence</span>' : ''}
-                </div>
-
-                <!--Word Bank-->
-                    <div class="flex flex-wrap gap-3 justify-center">
-                        ${this.gameState.scrambledWords.map((word, idx) => `
-                        <button onclick="app.handleScrambleClick(${idx}, false)" 
-                                class="px-6 py-3 bg-white border-2 border-gray-100 rounded-2xl font-bold text-gray-700 active:scale-95 transition hover:border-primary shadow-sm">
+                        <button onclick="app.handleScrambleClick(${idx}, true)" 
+                                class="px-5 py-3 bg-primary text-white rounded-2xl font-black shadow-lg transform transition active:scale-90 animate-bounce-in border-b-4 border-primary-dark">
                             ${word}
                         </button>
                     `).join('')}
-                    </div>
+                    ${this.gameState.userWords.length === 0 ? '<span class="text-gray-300 font-bold uppercase tracking-widest text-[10px]">Arrange words here</span>' : ''}
+                </div>
 
-                ${this.gameState.userWords.length === q.answer.length ? `
-                    <button onclick="app.checkScrambleAnswer()" class="w-full bg-primary text-white font-bold py-4 rounded-2xl shadow-lg active:scale-95 transition animate-slide-up">
-                        Check Sentence
+                <!-- Word Bank -->
+                <div class="flex flex-wrap gap-2 justify-center">
+                    ${this.gameState.scrambledWords.map((word, idx) => `
+                        <button onclick="app.handleScrambleClick(${idx}, false)" 
+                                class="px-4 py-3 bg-white border-2 border-gray-100 rounded-2xl font-bold text-gray-700 shadow-sm transform transition hover:border-primary hover:text-primary active:scale-90 border-b-4 border-gray-200">
+                            ${word}
+                        </button>
+                    `).join('')}
+                </div>
+
+                <div class="pt-4 flex space-x-3">
+                    <button onclick="app.checkScrambleAnswer()" 
+                            class="flex-1 bg-primary text-white font-black py-4 rounded-3xl shadow-xl active:scale-95 transition-all text-sm tracking-widest ${this.gameState.userWords.length === q.answer.length ? 'opacity-100 scale-100' : 'opacity-30 pointer-events-none scale-95'} ">
+                        CHECK ANSWER
                     </button>
-                ` : ''}
+                    ${this.gameState.userWords.length > 0 ? `
+                        <button onclick="app.gameState.userWords=[]; app.renderBattleQuestion()" class="px-6 bg-gray-100 text-gray-400 rounded-3xl font-bold hover:bg-gray-200 transition">↺</button>
+                    ` : ''}
+                </div>
             </div>
         `;
     }
@@ -2086,7 +2330,12 @@ class App {
             const word = this.gameState.scrambledWords.splice(index, 1)[0];
             this.gameState.userWords.push(word);
         }
-        this.renderQuestion();
+
+        if (this.gameState && this.gameState.isBattle) {
+            this.renderBattleQuestion();
+        } else {
+            this.renderQuestion();
+        }
     }
 
     handleMCQClick(btn) {
@@ -2105,7 +2354,11 @@ class App {
         this.gameState.scrambledWords = null;
         this.gameState.userWords = [];
 
-        this.checkAnswer(isCorrect ? q.answer.join(' ') : 'wrong', isCorrect);
+        if (this.gameState && this.gameState.isBattle) {
+            this.checkBattleAnswer(isCorrect ? q.answer.join(' ') : 'wrong');
+        } else {
+            this.checkAnswer(isCorrect ? q.answer.join(' ') : 'wrong', isCorrect);
+        }
     }
 
     renderMatchPairs(q) {
@@ -2129,7 +2382,7 @@ class App {
         const { selectedLeft, selectedRight, matchedPairs } = this.gameState.matchingData;
 
         return `
-                < div class="space-y-6" >
+                <div class="space-y-6">
                 <p class="text-center text-gray-500 text-sm">Match English to Urdu</p>
                 <div class="grid grid-cols-2 gap-4">
                     <!-- Left Column (English) -->
@@ -2202,7 +2455,11 @@ class App {
             this.gameState.matchingData.selectedRight = null;
         }
 
-        this.renderQuestion();
+        if (this.gameState && this.gameState.isBattle) {
+            this.renderBattleQuestion();
+        } else {
+            this.renderQuestion();
+        }
     }
 }
 
