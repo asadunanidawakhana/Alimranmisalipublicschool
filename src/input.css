@@ -2,13 +2,24 @@
 @source "../";
 
 @theme {
-    --color-primary: #2563EB;
+    --color-primary: var(--color-primary-accent);
     --color-secondary: #F97316;
     --color-success: #10B981;
     --color-warning: #FBBF24;
     --color-error: #EF4444;
     --color-accent: #8B5CF6;
-    --color-soft-gray: #F9FAFB;
+    
+    /* Dynamic Theme Mapping */
+    --color-soft-gray: var(--color-soft-gray-bg);
+    --color-white: var(--color-card-bg);
+    --color-gray-50: var(--color-border-subtle);
+    --color-gray-100: var(--color-border-subtle);
+    --color-gray-200: var(--color-border-subtle);
+    --color-gray-400: var(--color-text-dim);
+    --color-gray-500: var(--color-text-dim);
+    --color-gray-700: var(--color-text-main);
+    --color-gray-800: var(--color-text-main);
+    --color-gray-900: var(--color-text-main);
 
     --font-family-poppins: "Poppins", sans-serif;
     --font-family-inter: "Inter", sans-serif;

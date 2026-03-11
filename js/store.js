@@ -51,7 +51,12 @@ const INITIAL_DATA = {
         lastHeartRegen: Date.now(),
         lastTestTime: 0,
         selectedAvatar: 'default',
-        purchasedItems: ['default']
+        purchasedItems: ['default'],
+        inventory: {
+            streakFreezes: 0,
+            xpBoostUntil: 0, // Timestamp
+            hintTokens: 0
+        }
     },
     leaderboard: [
         { name: 'Ahmad', level: 12, xp: 1250, isBot: true },
@@ -88,6 +93,21 @@ const INITIAL_DATA = {
             vocabulary: 0,
             formation: 0,
             phrases: 0
+        },
+        directIndirect: {
+            reporting_verbs: 0,
+            assertive_sentences: 0,
+            interrogative_sentences: 0,
+            imperative_sentences: 0,
+            exclamatory_sentences: 0,
+            optative_sentences: 0
+        },
+        grammarBasics: {
+            nouns: 0,
+            pronouns: 0,
+            articles: 0,
+            adjAdv: 0,
+            figures: 0
         }
     },
     history: {
@@ -97,7 +117,8 @@ const INITIAL_DATA = {
     settings: {
         darkMode: false,
         soundEnabled: true,
-        urduInterface: true
+        urduInterface: true,
+        theme: 'default'
     }
 };
 
@@ -124,6 +145,51 @@ class Store {
                 window.dispatchEvent(new CustomEvent('leaderboard-updated'));
             }
         });
+
+        this.setupUserListener();
+    }
+
+    setupUserListener() {
+        if (!this.data.user.id) return;
+
+        const userRef = ref(db, 'users/' + this.data.user.id);
+        onValue(userRef, (snapshot) => {
+            const serverData = snapshot.val();
+            if (serverData) {
+                let changed = false;
+
+                // Sync stats from server (admin might have changed them)
+                if (serverData.coins !== undefined && serverData.coins !== this.data.user.coins) {
+                    this.data.user.coins = serverData.coins;
+                    changed = true;
+                }
+                if (serverData.xp !== undefined && serverData.xp !== this.data.user.xp) {
+                    this.data.user.xp = serverData.xp;
+                    changed = true;
+                }
+                if (serverData.level !== undefined && serverData.level !== this.data.user.level) {
+                    this.data.user.level = serverData.level;
+                    changed = true;
+                }
+                if (serverData.name !== undefined && serverData.name !== this.data.user.name) {
+                    this.data.user.name = serverData.name;
+                    changed = true;
+                }
+
+                if (changed) {
+                    this.save();
+                    // Dispatch event for UI to re-render
+                    window.dispatchEvent(new CustomEvent('stats-synced-from-firebase', {
+                        detail: {
+                            coins: this.data.user.coins,
+                            xp: this.data.user.xp,
+                            level: this.data.user.level,
+                            name: this.data.user.name
+                        }
+                    }));
+                }
+            }
+        });
     }
 
     syncWithBackend() {
@@ -133,6 +199,7 @@ class Store {
                 name: this.data.user.name,
                 level: this.data.user.level,
                 xp: this.data.user.xp,
+                coins: this.data.user.coins,
                 selectedAvatar: this.data.user.selectedAvatar,
                 lastActive: Date.now()
             }).catch(error => console.error("Firebase sync error:", error));
@@ -154,8 +221,11 @@ class Store {
                 progress: {
                     tenses: { ...INITIAL_DATA.progress.tenses, ...(parsed.progress?.tenses || {}) },
                     activePassive: { ...INITIAL_DATA.progress.activePassive, ...(parsed.progress?.activePassive || {}) },
-                    modules: { ...INITIAL_DATA.progress.modules, ...(parsed.progress?.modules || {}) }
-                }
+                    modules: { ...INITIAL_DATA.progress.modules, ...(parsed.progress?.modules || {}) },
+                    directIndirect: { ...INITIAL_DATA.progress.directIndirect, ...(parsed.progress?.directIndirect || {}) },
+                    grammarBasics: { ...INITIAL_DATA.progress.grammarBasics, ...(parsed.progress?.grammarBasics || {}) }
+                },
+                settings: { ...INITIAL_DATA.settings, ...(parsed.settings || {}) }
             };
         } catch (e) {
             console.error('Failed to parse saved data', e);
@@ -186,6 +256,11 @@ class Store {
                 if (lastLoginStr === yesterday.toDateString()) {
                     // Valid streak
                     this.data.user.streak += 1;
+                } else if (this.data.user.inventory && this.data.user.inventory.streakFreezes > 0) {
+                    // Streak was broken, but user has a freeze!
+                    this.data.user.inventory.streakFreezes--;
+                    // Keep the current streak (don't reset, but don't increment yet)
+                    console.log("Streak Freeze used!");
                 } else {
                     // Streak broken
                     this.data.user.streak = 1;
@@ -216,10 +291,17 @@ class Store {
     }
 
     addXP(amount) {
-        this.data.user.xp += amount;
+        let finalAmount = amount;
 
-        // Also award coins (1 coin per 10 XP)
-        const coinAward = Math.floor(amount / 5);
+        // XP Booster Logic
+        if (this.data.user.inventory && this.data.user.inventory.xpBoostUntil > Date.now()) {
+            finalAmount *= 2;
+        }
+
+        this.data.user.xp += finalAmount;
+
+        // Also award coins (1 coin per 5 XP now, more generous)
+        const coinAward = Math.floor(finalAmount / 5);
         if (coinAward > 0) this.addCoins(coinAward);
 
         // Simple level logic: 100 XP per level for first 10 levels
@@ -247,6 +329,7 @@ class Store {
         this.data.user.coins += amount;
         this.checkAndAwardBadges(); // Check Coin-based badges
         this.save();
+        this.syncWithBackend(); // Sync updated stats to Firebase
         window.dispatchEvent(new CustomEvent('coins-updated', { detail: { coins: this.data.user.coins } }));
     }
 
@@ -254,9 +337,48 @@ class Store {
         if (this.data.user.coins >= amount) {
             this.data.user.coins -= amount;
             this.save();
+            this.syncWithBackend(); // Sync updated stats to Firebase
             return true;
         }
         return false;
+    }
+
+    purchaseItem(item) {
+        if (this.data.user.coins < item.price) return false;
+
+        // Special handling by type
+        if (item.type === 'powerup') {
+            if (!this.data.user.inventory) {
+                this.data.user.inventory = { streakFreezes: 0, xpBoostUntil: 0, hintTokens: 0 };
+            }
+
+            if (item.id === 'streak_freeze') this.data.user.inventory.streakFreezes++;
+            else if (item.id === 'xp_boost') {
+                const now = Date.now();
+                const currentBoost = this.data.user.inventory.xpBoostUntil > now ? this.data.user.inventory.xpBoostUntil : now;
+                this.data.user.inventory.xpBoostUntil = currentBoost + (30 * 60 * 1000); // Add 30 mins
+            }
+            else if (item.id === 'hint_token') this.data.user.inventory.hintTokens += 3; // Packs of 3
+            else if (item.id === 'heart_refill') {
+                this.data.user.hearts = 5;
+                this.data.user.lastHeartRegen = Date.now();
+            }
+        } else if (item.type === 'theme') {
+            if (!this.data.user.purchasedItems.includes(item.id)) {
+                this.data.user.purchasedItems.push(item.id);
+            }
+            this.data.settings.theme = item.id;
+        } else if (item.type === 'avatar') {
+            if (!this.data.user.purchasedItems.includes(item.id)) {
+                this.data.user.purchasedItems.push(item.id);
+            }
+            this.data.user.selectedAvatar = item.id;
+        }
+
+        this.deductCoins(item.price);
+        this.save();
+        this.syncWithBackend();
+        return true;
     }
 
     updateProgress(type, id, value) {

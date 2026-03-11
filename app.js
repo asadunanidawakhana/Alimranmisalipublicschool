@@ -13,6 +13,8 @@ import { apQuestions } from './js/data/ap_questions.js';
 import { shopItems } from './js/data/shop_items.js';
 import { directIndirect } from './js/data/direct_indirect.js';
 import { diQuestions } from './js/data/di_questions.js';
+import { grammarBasics } from './js/data/grammar_basics.js';
+import { grammarQuestions } from './js/data/grammar_questions.js';
 
 class App {
     constructor() {
@@ -35,6 +37,7 @@ class App {
                 matchedPairs: []
             }
         };
+        this.setupEventListeners();
         this.init();
 
         // Global error handler to prevent mysterious blank pages
@@ -57,6 +60,30 @@ class App {
         };
     }
 
+    setupEventListeners() {
+        // Badge unlocks
+        window.addEventListener('badge-unlocked', (e) => {
+            const badge = e.detail;
+            setTimeout(() => this.showBadgeUnlock(badge), 500);
+        });
+
+        // Leaderboard updates
+        window.addEventListener('leaderboard-updated', () => {
+            if (this.currentView === 'leaderboard') {
+                this.renderLeaderboard();
+            }
+        });
+
+        // External stats sync (from Firebase Admin Console or other devices)
+        window.addEventListener('stats-synced-from-firebase', (e) => {
+            console.log("Stats synced from Firebase:", e.detail);
+            // Re-render current view to reflect new coins/xp/name
+            if (['home', 'profile', 'shop', 'leaderboard'].includes(this.currentView)) {
+                this.renderView(this.currentView, {}, false);
+            }
+        });
+    }
+
     async init() {
         // Show Splash Screen first
         await this.showSplash();
@@ -65,21 +92,13 @@ class App {
         if (!store.data.user.name) {
             this.navigate('onboarding');
         } else {
-            // Push local user data to the new backend to ensure they are tracked
-            store.syncWithBackend();
-
             // Check Daily Streak
             if (store.checkDailyStreak()) {
                 // Wait a moment for app to render, then show reward
                 setTimeout(() => this.showDailyReward(), 1500);
             }
 
-            // Listen for badge unlock events globally
-            window.addEventListener('badge-unlocked', (e) => {
-                const badge = e.detail;
-                // Wait slightly to not overlap with other alerts
-                setTimeout(() => this.showBadgeUnlock(badge), 500);
-            });
+            // Checked in setupEventListeners
 
             // Handle hash on refresh
             const hash = window.location.hash.substring(1);
@@ -89,6 +108,8 @@ class App {
                 this.navigate('home');
             }
         }
+
+        this.applyTheme();
 
         // Listen for back button
         window.onpopstate = (event) => {
@@ -131,6 +152,19 @@ class App {
                 }, 500);
             }, 3000);
         });
+    }
+
+    applyTheme() {
+        const theme = store.data.settings?.theme || 'default';
+        const themeClasses = ['theme-dark', 'theme-neon', 'theme-royal'];
+
+        // Remove existing theme classes
+        document.body.classList.remove(...themeClasses);
+
+        // Add new theme class if not default
+        if (theme !== 'default') {
+            document.body.classList.add(`theme-${theme}`);
+        }
     }
 
     showDailyReward() {
@@ -229,13 +263,7 @@ class App {
             const existingOverlays = document.querySelectorAll('.fixed.z-50');
             existingOverlays.forEach(o => o.remove());
 
-            // Listen for real-time leaderboard updates
-            window.addEventListener('leaderboard-updated', () => {
-                if (this.currentView === 'leaderboard') {
-                    // Re-render the leaderboard dynamically if they are on that page
-                    this.renderLeaderboard();
-                }
-            });
+            this.applyTheme();
 
             switch (view) {
                 case 'onboarding':
@@ -265,6 +293,12 @@ class App {
                 case 'di-detail':
                     await this.renderDirectIndirectDetail(params.id);
                     break;
+                case 'learn-grammar':
+                    await this.renderLearn('grammarBasics');
+                    break;
+                case 'grammar-detail':
+                    await this.renderGrammarDetail(params.id);
+                    break;
                 case 'game':
                     await this.showDifficultySelection(params.id, params.mode || 'tenses');
                     break;
@@ -279,6 +313,9 @@ class App {
                     break;
                 case 'profile':
                     await this.renderProfile();
+                    break;
+                case 'quest-map':
+                    await this.renderQuestMap();
                     break;
                 case 'battle':
                     this.renderBattleQuestion();
@@ -357,7 +394,7 @@ class App {
             <div class="flex flex-col min-h-screen bg-soft-gray animate-fade-in pb-24">
                 <!-- Header -->
                 <div class="bg-white p-4 flex items-center justify-between shadow-sm sticky top-0 z-10 transition-all">
-                    <div class="flex items-center space-x-3">
+                    <div class="flex items-center space-x-3" onclick="app.navigate('profile')">
                         <div class="w-12 h-12 bg-primary/5 rounded-2xl flex items-center justify-center text-3xl font-bold animate-float shadow-inner">
                             ${userAvatar.icon}
                         </div>
@@ -367,7 +404,6 @@ class App {
                         </div>
                     </div>
                     <div class="flex items-center space-x-3">
-                        <!-- Coins Badge -->
                         <div onclick="app.navigate('shop')" class="flex items-center space-x-1 bg-green-50 px-3 py-1.5 rounded-full border border-green-100 active:scale-95 transition cursor-pointer">
                             <span class="text-xs">💰</span>
                             <span class="font-bold text-green-600 text-sm">${store.data.user.coins}</span>
@@ -381,16 +417,30 @@ class App {
 
                 <!-- Main Content -->
                 <div class="p-4 space-y-6 overflow-y-auto">
-                    <!-- Progress Card -->
-                    <div class="bg-gradient-to-r from-primary to-blue-700 p-6 rounded-3xl text-white shadow-lg">
-                        <h3 class="font-bold text-lg mb-1">Continue Learning</h3>
-                        <p class="text-white/80 text-sm mb-4">Simple Present Tense</p>
-                        <div class="w-full bg-white/20 h-2 rounded-full overflow-hidden mb-4">
-                            <div class="bg-white h-full" style="width: ${store.data.progress.tenses.simplePresent}%"></div>
+                    <!-- Word of the Day -->
+                    <div class="bg-white p-4 rounded-3xl border border-gray-100 shadow-sm animate-fade-in">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-[10px] font-bold text-primary uppercase tracking-widest">Word of the Day</span>
+                            <span class="text-[10px] font-urdu text-gray-400">آج کا لفظ</span>
                         </div>
-                        <button onclick="app.navigate('tense-detail', {id: 'simplePresent'})" class="bg-white text-primary font-bold px-6 py-2 rounded-full text-sm hover:bg-soft-gray transition shadow-md">
-                            Resume
-                        </button>
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h4 class="text-xl font-bold text-gray-800">Conjunction</h4>
+                                <p class="text-sm text-gray-500 font-urdu italic">لفظ عطف - الفاظ کو ملانے والا</p>
+                            </div>
+                            <button onclick="app.speak('Conjunction')" class="w-10 h-10 bg-primary/5 rounded-full flex items-center justify-center text-primary active:scale-95 transition">🔊</button>
+                        </div>
+                    </div>
+
+                    <!-- Progress Card -->
+                    <div class="bg-gradient-to-r from-primary to-blue-700 p-6 rounded-3xl text-white shadow-lg relative overflow-hidden group" onclick="app.renderQuestMap()">
+                        <div class="absolute top-0 right-0 p-4 opacity-20 transform group-hover:scale-125 transition-transform">🗺️</div>
+                        <h3 class="font-bold text-lg mb-1">Quest Map</h3>
+                        <p class="text-white/80 text-sm mb-4">View your learning journey</p>
+                        <div class="w-full bg-white/20 h-2 rounded-full overflow-hidden mb-4">
+                            <div class="bg-white h-full" style="width: 45%"></div>
+                        </div>
+                        <button class="bg-white text-primary font-bold px-6 py-2 rounded-full text-sm shadow-md">Open Map</button>
                     </div>
 
                     <!-- 1v1 Battle Card -->
@@ -474,6 +524,13 @@ class App {
                         <p class="mt-4 text-xs font-bold text-secondary px-4 py-2 bg-secondary/5 rounded-full">8 Lessons</p>
                     </div>
 
+                    <div class="bg-white p-8 rounded-[40px] shadow-sm border-2 border-primary/5 flex flex-col items-center text-center cursor-pointer active:scale-95 transition-all hover:bg-primary/5 group" onclick="app.navigate('learn-grammar')">
+                        <div class="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center text-primary text-5xl mb-6 group-hover:scale-110 transition-transform">📝</div>
+                        <h3 class="text-2xl font-bold text-gray-800 mb-2">Grammar Basics</h3>
+                        <p class="text-gray-500 font-urdu">بنیادی گرامر</p>
+                        <p class="mt-4 text-xs font-bold text-primary px-4 py-2 bg-primary/5 rounded-full">5+ Lessons</p>
+                    </div>
+
                     <div class="bg-white p-8 rounded-[40px] shadow-sm border-2 border-primary/5 flex flex-col items-center text-center cursor-pointer active:scale-95 transition-all hover:bg-primary/5 group" onclick="app.navigate('learn-di')">
                         <div class="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center text-primary text-5xl mb-6 group-hover:scale-110 transition-transform">🗣️</div>
                         <h3 class="text-2xl font-bold text-gray-800 mb-2">Direct / Indirect</h3>
@@ -506,6 +563,10 @@ class App {
             data = activePassive;
             title = 'Active/Passive Voice';
             detailRoute = 'ap-detail';
+        } else if (mode === 'grammarBasics') {
+            data = grammarBasics;
+            title = 'Grammar Basics';
+            detailRoute = 'grammar-detail';
         } else {
             data = directIndirect;
             title = 'Direct/Indirect Speech';
@@ -555,12 +616,15 @@ class App {
         this.container.innerHTML = `
             <div class="flex flex-col min-h-screen bg-soft-gray animate-fade-in pb-24">
                 <div class="bg-white p-4 flex items-center justify-between shadow-sm sticky top-0 z-10">
-                    <div class="flex items-center space-x-4">
-                        <button onclick="app.navigate('learn-ap')" class="p-2 -ml-2 text-xl">←</button>
-                        <div>
-                            <h2 class="text-lg font-bold leading-none">${item.name} Voice</h2>
-                            <p class="text-xs text-gray-500">Active to Passive Conversion</p>
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-4">
+                            <button onclick="app.navigate('learn-ap')" class="p-2 -ml-2 text-xl">←</button>
+                            <div>
+                                <h2 class="text-lg font-bold leading-none">${item.name} Voice</h2>
+                                <p class="text-xs text-gray-500">Active to Passive Conversion</p>
+                            </div>
                         </div>
+                        <button onclick="app.downloadNotes('${id}', 'activePassive')" class="text-primary text-xs font-bold hover:underline">📥 Notes</button>
                     </div>
                 </div>
 
@@ -618,6 +682,68 @@ class App {
         `;
     }
 
+    async renderGrammarDetail(id) {
+        const item = grammarBasics[id];
+        if (!item) return this.navigate('learn-grammar');
+
+        this.container.innerHTML = `
+            <div class="flex flex-col min-h-screen bg-soft-gray animate-fade-in pb-24">
+                <div class="bg-white p-4 flex items-center justify-between shadow-sm sticky top-0 z-10">
+                    <div class="flex items-center justify-between w-full">
+                        <div class="flex items-center space-x-4">
+                            <button onclick="app.navigate('learn-grammar')" class="p-2 -ml-2 text-xl">←</button>
+                            <div>
+                                <h2 class="text-lg font-bold leading-none">${item.name}</h2>
+                                <p class="text-xs text-gray-500 font-urdu">${item.urduName}</p>
+                            </div>
+                        </div>
+                        <button onclick="app.downloadNotes('${id}', 'grammarBasics')" class="text-primary text-xs font-bold hover:underline">📥 Notes</button>
+                    </div>
+                </div>
+
+                <div class="p-4 space-y-6 overflow-y-auto">
+                    <!-- Theory Card -->
+                    <div class="bg-white p-6 rounded-3xl shadow-sm border border-primary/20 border-2 animate-slide-up">
+                        <h3 class="text-[10px] font-bold text-primary uppercase tracking-widest mb-2">Definition / تعریف</h3>
+                        <p class="text-lg font-bold text-gray-800 mb-2">${item.theory.english}</p>
+                        <p class="text-gray-600 font-urdu border-t pt-2">${item.theory.urdu}</p>
+                    </div>
+
+                    <!-- Sections -->
+                    <div class="space-y-4 animate-fade-in">
+                        ${item.sections.map(sec => `
+                            <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+                                <h4 class="font-bold text-gray-800 mb-1">${sec.title}</h4>
+                                <p class="text-[10px] text-gray-400 font-urdu mb-3">${sec.urduTitle}</p>
+                                <p class="text-gray-700 text-sm mb-3">${sec.content}</p>
+                                <p class="text-gray-800 font-urdu text-sm border-t pt-3">${sec.urduContent}</p>
+                            </div>
+                        `).join('')}
+                    </div>
+
+                    <!-- Examples -->
+                    <div class="space-y-4 animate-fade-in pb-20">
+                        <h4 class="font-bold px-2">Examples / مثالیں</h4>
+                        ${item.examples.map((ex, idx) => `
+                            <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+                                <p class="font-bold text-gray-800">${ex.english}</p>
+                                <p class="text-sm text-gray-500 font-urdu mt-1">${ex.urdu}</p>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <div class="fixed bottom-24 left-4 right-4 animate-slide-up z-20">
+                    <button onclick="app.showDifficultySelection('${id}', 'grammarBasics')" class="w-full bg-primary text-white font-bold py-4 rounded-3xl shadow-lg active:scale-95 transition">
+                        Practice ${item.name.split(' (')[0]}
+                    </button>
+                </div>
+
+                ${this.getBottomNav()}
+            </div>
+        `;
+    }
+
     async renderDirectIndirectDetail(id) {
         const item = directIndirect[id];
         if (!item) return this.navigate('learn-di');
@@ -625,12 +751,15 @@ class App {
         this.container.innerHTML = `
             <div class="flex flex-col min-h-screen bg-soft-gray animate-fade-in pb-24">
                 <div class="bg-white p-4 flex items-center justify-between shadow-sm sticky top-0 z-10">
-                    <div class="flex items-center space-x-4">
-                        <button onclick="app.navigate('learn-di')" class="p-2 -ml-2 text-xl">←</button>
-                        <div>
-                            <h2 class="text-lg font-bold leading-none">${item.name}</h2>
-                            <p class="text-xs text-gray-500">Narration Rules</p>
+                    <div class="flex items-center justify-between w-full">
+                        <div class="flex items-center space-x-4">
+                            <button onclick="app.navigate('learn-di')" class="p-2 -ml-2 text-xl">←</button>
+                            <div>
+                                <h2 class="text-lg font-bold leading-none">${item.name}</h2>
+                                <p class="text-xs text-gray-500">Narration Rules</p>
+                            </div>
                         </div>
+                        <button onclick="app.downloadNotes('${id}', 'directIndirect')" class="text-primary text-xs font-bold hover:underline">📥 Notes</button>
                     </div>
                 </div>
 
@@ -703,7 +832,12 @@ class App {
                     <!-- Formula Card -->
                     <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 animate-slide-up">
                         <h3 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-2">Formula</h3>
-                        <p class="text-2xl font-bold text-primary">${tense.formula}</p>
+                        <div class="flex items-center justify-between">
+                            <p class="text-2xl font-bold text-primary">${tense.formula}</p>
+                            <button onclick="app.downloadNotes('${id}', 'tenses')" class="text-primary text-xs font-bold hover:underline flex items-center gap-1">
+                                <span>📥 Download Notes</span>
+                            </button>
+                        </div>
                     </div>
 
                     <!-- Tabs -->
@@ -856,6 +990,8 @@ class App {
             pool = questions;
         } else if (mode === 'activePassive') {
             pool = apQuestions;
+        } else if (mode === 'grammarBasics') {
+            pool = grammarQuestions;
         } else {
             pool = diQuestions;
         }
@@ -877,6 +1013,9 @@ class App {
         } else if (mode === 'activePassive') {
             const dynamicQuestions = this.generateAPDynamicQuestions(tenseId, difficulty);
             tenseQuestions = [...tenseQuestions, ...dynamicQuestions];
+        } else if (mode === 'grammarBasics') {
+            const dynamicQuestions = this.generateGrammarDynamicQuestions(tenseId, difficulty);
+            tenseQuestions = [...tenseQuestions, ...dynamicQuestions];
         } else {
             const dynamicQuestions = this.generateDIDynamicQuestions(tenseId, difficulty);
             tenseQuestions = [...tenseQuestions, ...dynamicQuestions];
@@ -893,7 +1032,12 @@ class App {
             mode,
             tenseId,
             difficulty,
-            questions: tenseQuestions.sort(() => Math.random() - 0.5),
+            questions: tenseQuestions.sort(() => Math.random() - 0.5).map(q => {
+                if (q.options) {
+                    return { ...q, options: [...q.options].sort(() => Math.random() - 0.5) };
+                }
+                return q;
+            }),
             currentIndex: 0,
             score: 0,
             lives: 5,
@@ -1029,6 +1173,38 @@ class App {
         return finalOptions.sort(() => Math.random() - 0.5);
     }
 
+    generateGrammarDynamicQuestions(id, difficulty = 'easy') {
+        const data = grammarBasics[id];
+        if (!data || !data.examples) return [];
+        return data.examples.map((ex, idx) => ({
+            id: `gram_dyn_${id}_${idx}`,
+            type: 'mcq',
+            difficulty,
+            question: `Which represents: "${ex.urdu}"?`,
+            options: this.generateGrammarOptions(ex.english, id),
+            answer: ex.english,
+            urdu: ex.urdu
+        }));
+    }
+
+    generateGrammarOptions(correctAnswer, id) {
+        const options = [correctAnswer];
+        const otherExamples = Object.values(grammarBasics)
+            .flatMap(g => g.examples)
+            .filter(ex => ex.english !== correctAnswer);
+
+        const distractors = [...otherExamples]
+            .sort(() => Math.random() - 0.5)
+            .slice(0, 3)
+            .map(ex => ex.english);
+
+        const finalOptions = Array.from(new Set([...options, ...distractors]));
+        while (finalOptions.length < 4) {
+            finalOptions.push("None of these / ان میں سے کوئی nahi");
+        }
+        return finalOptions.sort(() => Math.random() - 0.5);
+    }
+
     generateOptions(correctAnswer, tenseId) {
         const options = [correctAnswer];
         const otherExamples = Object.values(tenses)
@@ -1082,7 +1258,12 @@ class App {
             return;
         }
 
-        const testPool = allQuestions.sort(() => Math.random() - 0.5).slice(0, 10);
+        const testPool = allQuestions.sort(() => Math.random() - 0.5).slice(0, 10).map(q => {
+            if (q.options) {
+                return { ...q, options: [...q.options].sort(() => Math.random() - 0.5) };
+            }
+            return q;
+        });
 
         this.gameState = {
             isTest: true,
@@ -1184,6 +1365,8 @@ class App {
                 `;
             }
 
+            const canUseHint = q.type === 'mcq' && store.data.user.inventory?.hintTokens > 0;
+
             this.container.innerHTML = `
                 <div class="flex flex-col min-h-screen bg-white animate-fade-in relative">
                     <!-- Difficulty Badge -->
@@ -1224,9 +1407,21 @@ class App {
                     </div>
 
                     <!-- Answer Options -->
-                    <div class="p-6 space-y-3 pb-12">
+                    <div class="p-6 space-y-3 pb-4">
                         ${questionContent}
                     </div>
+
+                    ${canUseHint ? `
+                        <div class="flex justify-center pb-8 animate-slide-up" style="animation-delay: 0.3s">
+                            <button id="hint-btn" onclick="app.useHint()" class="flex flex-col items-center justify-center p-3 rounded-2xl bg-orange-50/50 border-2 border-orange-100 hover:border-orange-300 hover:bg-orange-50 active:scale-95 transition-all group">
+                                <div class="relative">
+                                    <span class="text-3xl filter drop-shadow-sm group-hover:scale-110 transition-transform">💡</span>
+                                    <span class="absolute -top-1 -right-2 bg-red-500 text-white text-[10px] font-black w-5 h-5 flex items-center justify-center rounded-full shadow-sm border-2 border-white" id="hint-count">${store.data.user.inventory?.hintTokens || 0}</span>
+                                </div>
+                                <span class="text-[10px] font-bold text-orange-600 uppercase tracking-widest mt-1">Hint</span>
+                            </button>
+                        </div>
+                    ` : '<div class="pb-12"></div>'}
                 </div>
             `;
 
@@ -1300,6 +1495,38 @@ class App {
                 btn.classList.remove('opacity-50', 'pointer-events-none');
             });
             this.showFeedback(false, "Error occurred / ایرر آ گیا");
+        }
+    }
+
+    useHint() {
+        if (!this.gameState || this.gameState.currentIndex === undefined) return;
+        const q = this.gameState.questions[this.gameState.currentIndex];
+        if (q.type !== 'mcq') return;
+
+        if (store.data.user.inventory?.hintTokens > 0) {
+            store.data.user.inventory.hintTokens--;
+            store.save();
+
+            // Find wrong options
+            const buttons = Array.from(this.container.querySelectorAll('.space-y-4 button'));
+            let removed = 0;
+            buttons.forEach(btn => {
+                const opt = btn.textContent.trim();
+                if (opt !== q.answer && removed < 2) {
+                    btn.classList.add('opacity-30', 'pointer-events-none');
+                    btn.innerHTML = '🚫';
+                    removed++;
+                }
+            });
+
+            // Re-render the shop area if visible or update the button
+            const hintBtn = document.getElementById('hint-btn');
+            if (hintBtn) {
+                hintBtn.innerHTML = `💡 ${store.data.user.inventory.hintTokens}`;
+                if (store.data.user.inventory.hintTokens === 0) hintBtn.disabled = true;
+            }
+        } else {
+            alert("No Hint Tokens! Buy them in the Shop. / ہنٹ ٹوکن نہیں ہیں");
         }
     }
 
@@ -1575,53 +1802,100 @@ class App {
     }
 
     async renderShop() {
+        const categories = {
+            avatar: { name: 'Avatars', icon: '👤' },
+            powerup: { name: 'Power-ups', icon: '⚡' },
+            theme: { name: 'Themes', icon: '🎨' }
+        };
+
         this.container.innerHTML = `
             <div class="flex flex-col min-h-screen bg-soft-gray animate-fade-in pb-24">
-                <!-- Shop Header -->
                 <div class="bg-white p-6 sticky top-0 z-50 flex items-center justify-between border-b border-gray-100">
                     <div class="flex items-center space-x-3">
-                        <button onclick="app.navigate('profile')" class="p-2 -ml-2 text-xl hover:bg-gray-50 rounded-full transition">←</button>
-                        <h2 class="text-xl font-bold text-primary">Avatar Shop</h2>
+                        <button onclick="app.navigate('home')" class="p-2 -ml-2 text-xl hover:bg-gray-50 rounded-full transition">←</button>
+                        <h2 class="text-xl font-bold text-primary">Shop / دکان</h2>
                     </div>
-                    <div class="flex items-center space-x-1 bg-green-50 px-3 py-1 rounded-full">
+                    <div class="flex items-center space-x-1 bg-green-50 px-3 py-1 rounded-full border border-green-100">
                         <span class="text-green-600">💰</span>
                         <span class="font-bold text-green-600">${store.data.user.coins}</span>
                     </div>
                 </div>
 
-                <!-- Items Grid -->
-                <div class="p-4 space-y-6">
-                    <div class="grid grid-cols-2 gap-4">
-                        ${shopItems.map(item => {
+                <div class="p-4 space-y-8 overflow-y-auto">
+                    <!-- Inventory Quick View -->
+                    <div class="bg-white p-4 rounded-3xl shadow-sm border border-gray-100 flex justify-around text-center">
+                        <div>
+                            <p class="text-[10px] text-gray-400 font-bold uppercase">Freezes</p>
+                            <p class="text-lg font-bold text-blue-500">${store.data.user.inventory?.streakFreezes || 0} 🧊</p>
+                        </div>
+                        <div class="border-l border-gray-100"></div>
+                        <div>
+                            <p class="text-[10px] text-gray-400 font-bold uppercase">Hints</p>
+                            <p class="text-lg font-bold text-orange-500">${store.data.user.inventory?.hintTokens || 0} 💡</p>
+                        </div>
+                        <div class="border-l border-gray-100"></div>
+                        <div>
+                            <p class="text-[10px] text-gray-400 font-bold uppercase">Boosts</p>
+                            <p class="text-lg font-bold text-green-500">${store.data.user.inventory?.xpBoostUntil > Date.now() ? 'ACTIVE' : 'NONE'}</p>
+                        </div>
+                    </div>
+
+                    ${Object.entries(categories).map(([type, cat]) => `
+                        <div class="space-y-4">
+                            <div class="flex items-center space-x-2 px-2">
+                                <span class="text-xl">${cat.icon}</span>
+                                <h3 class="font-bold text-gray-800">${cat.name}</h3>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                ${shopItems.filter(i => i.type === type).map(item => {
             const isOwned = store.data.user.purchasedItems.includes(item.id);
-            const isEquipped = store.data.user.selectedAvatar === item.id;
+            const isEquipped = (item.type === 'avatar' && store.data.user.selectedAvatar === item.id) ||
+                (item.type === 'theme' && store.data.settings.theme === item.id);
 
             return `
-                                <div class="bg-white p-5 rounded-[2.5rem] border border-gray-100 shadow-sm flex flex-col items-center text-center animate-bounce-in">
-                                    <div class="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center text-4xl mb-4 shadow-inner">
-                                        ${item.icon}
-                                    </div>
-                                    <h3 class="font-bold text-gray-800 text-sm mb-1">${item.name}</h3>
-                                    <p class="text-[10px] text-gray-400 mb-4 line-clamp-1">${item.description}</p>
-                                    
-                                    ${isEquipped ? `
-                                        <button disabled class="w-full py-2 bg-gray-100 text-gray-400 rounded-full text-xs font-bold">EQUIPPED</button>
-                                    ` : isOwned ? `
-                                        <button onclick="app.equipItem('${item.id}')" class="w-full py-2 bg-primary/10 text-primary rounded-full text-xs font-bold hover:bg-primary/20 hover:scale-105 active:scale-95 transition">EQUIP</button>
-                                    ` : `
-                                        <button onclick="app.buyItem('${item.id}')" class="w-full py-2 bg-primary text-white rounded-full text-xs font-bold shadow-lg hover:shadow-primary/30 hover:scale-105 active:scale-95 transition">
-                                            ${item.price} 💰
-                                        </button>
-                                    `}
-                                </div>
-                            `;
+                                        <div class="bg-white p-4 rounded-[2rem] border border-gray-100 shadow-sm flex flex-col items-center text-center group active:scale-95 transition-all">
+                                            <div class="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center text-3xl mb-3 shadow-inner group-hover:scale-110 transition-transform">
+                                                ${item.icon}
+                                            </div>
+                                            <h4 class="font-bold text-gray-800 text-xs mb-1">${item.name}</h4>
+                                            <p class="text-[9px] text-gray-400 mb-3 line-clamp-2 leading-tight">${item.description}</p>
+                                            
+                                            ${isEquipped ? `
+                                                <button disabled class="w-full py-2 bg-gray-100 text-gray-400 rounded-full text-[10px] font-bold">ACTIVE</button>
+                                            ` : (isOwned && (item.type === 'avatar' || item.type === 'theme')) ? `
+                                                <button onclick="app.equipItem('${item.id}')" class="w-full py-2 bg-primary/10 text-primary rounded-full text-[10px] font-bold">USE</button>
+                                            ` : `
+                                                <button onclick="app.buyItem('${item.id}')" class="w-full py-2 bg-primary text-white rounded-full text-[10px] font-bold shadow-md active:shadow-none">
+                                                    ${item.price} 💰
+                                                </button>
+                                            `}
+                                        </div>
+                                    `;
         }).join('')}
-                    </div>
+                            </div>
+                        </div>
+                    `).join('')}
                 </div>
 
                 ${this.getBottomNav()}
             </div>
         `;
+    }
+
+    buyItem(id) {
+        const item = shopItems.find(i => i.id === id);
+        if (!item) return;
+
+        if (store.purchaseItem(item)) {
+            if (item.type === 'theme') {
+                this.applyTheme();
+            }
+            // Success feedback
+            if (this.currentView === 'shop') this.renderShop();
+            else this.renderView(this.currentView, {});
+        } else {
+            alert("Not enough coins! / سکّے کم ہیں");
+        }
     }
 
     async renderMatchmaking() {
@@ -2289,29 +2563,19 @@ class App {
         `;
     }
 
-    buyItem(itemId) {
-        const item = shopItems.find(i => i.id === itemId);
-        if (!item) return;
-
-        if (store.data.user.coins >= item.price) {
-            if (store.deductCoins(item.price)) {
-                store.data.user.purchasedItems.push(itemId);
-                store.save();
-                this.renderShop(); // Refresh view
-
-                // Show success feedback logic could be here, but alert is simple for now
-                console.log(`Successfully purchased ${item.name} `);
-            }
-        } else {
-            console.log("Not enough coins!");
-        }
-    }
+    // Duplicate buyItem method removed
 
     equipItem(itemId) {
         const item = shopItems.find(i => i.id === itemId);
         if (item && item.type === 'avatar') {
             store.updateUser({ selectedAvatar: itemId });
             this.renderShop(); // Refresh
+        } else if (item && item.type === 'theme') {
+            if (!store.data.settings) store.data.settings = { theme: 'default' };
+            store.data.settings.theme = itemId;
+            store.save();
+            this.applyTheme();
+            this.renderShop();
         }
     }
 
@@ -2612,6 +2876,180 @@ class App {
         } else {
             this.renderQuestion();
         }
+    }
+
+    useHint() {
+        if (!this.gameState) return;
+
+        // If no hint tokens, offer to buy
+        if (!store.data.user.inventory) store.data.user.inventory = { hintTokens: 0, freezeTokens: 0 };
+        if (store.data.user.inventory.hintTokens < 1) {
+            if (confirm("Buy a Hint for 100 coins? / 100 سکوں میں ہنٹ خریدیں؟")) {
+                if (store.deductCoins(100)) {
+                    // Update header if exists
+                    const headerCoins = document.getElementById('header-coins');
+                    if (headerCoins) headerCoins.innerText = store.data.user.coins;
+                    
+                    store.data.user.inventory.hintTokens++;
+                    store.save();
+                    store.syncWithBackend(); // ensure backend is aware of inventory change
+                } else {
+                    alert("Insufficient coins! / ناکافی سکے!");
+                    return;
+                }
+            } else {
+                return;
+            }
+        }
+
+        // Find all MCQ options
+        const buttons = Array.from(this.container.querySelectorAll('button[data-answer]'));
+        if (buttons.length < 3) {
+            alert("Hint can't be used here! / یہاں ہنٹ استعمال نہیں ہو سکتا");
+            return; // Only for MCQs with multiple options
+        }
+
+        const q = this.gameState.questions[this.gameState.currentIndex];
+        const correctAnswer = String(q.answer);
+
+        // Filter incorrect options
+        const incorrectButtons = buttons.filter(btn => btn.getAttribute('data-answer') !== correctAnswer);
+
+        // Randomly pick 2 incorrect options to hide/disable
+        const toHide = incorrectButtons.sort(() => 0.5 - Math.random()).slice(0, 2);
+
+        toHide.forEach(btn => {
+            btn.classList.add('opacity-10', 'pointer-events-none', 'grayscale');
+            btn.innerHTML += ' ❌';
+        });
+
+        // Deduct token
+        store.data.user.inventory.hintTokens--;
+        store.save();
+        store.syncWithBackend(); // keep backend updated
+
+        // Update UI
+        const hintBtn = document.getElementById('hint-btn');
+        const hintCount = document.getElementById('hint-count');
+        if (hintCount) hintCount.innerText = store.data.user.inventory.hintTokens;
+
+        this.showFeedback(true, "Hint used! Two incorrect options removed.");
+    }
+
+    async renderQuestMap() {
+        const modules = [
+            { id: 'grammarBasics', name: 'Grammar Basics', icon: '📝', urdu: 'بنیادی گرامر', route: 'learn-grammar' },
+            { id: 'tenses', name: 'Tenses', icon: '📚', urdu: 'ٹینسز', route: 'learn-tenses' },
+            { id: 'activePassive', name: 'Voice', icon: '🔄', urdu: 'ایکٹو پیسو وائس', route: 'learn-ap' },
+            { id: 'directIndirect', name: 'Narration', icon: '🗣️', urdu: 'ڈائریکٹ ان ڈائریکٹ', route: 'learn-di' }
+        ];
+
+        this.container.innerHTML = `
+            <div class="flex flex-col min-h-screen bg-soft-gray animate-fade-in pb-24">
+                <div class="bg-white p-4 flex items-center space-x-4 shadow-sm border-b border-gray-100">
+                    <button onclick="app.navigate('home')" class="p-2 -ml-2 text-xl hover:bg-gray-50 rounded-full transition">←</button>
+                    <h2 class="text-xl font-bold">Quest Map / مشن میپ</h2>
+                </div>
+
+                <div class="flex-1 p-6 relative overflow-y-auto">
+                    <!-- Path line -->
+                    <div class="absolute left-1/2 top-0 bottom-0 w-2 bg-primary/10 -translate-x-1/2 rounded-full"></div>
+
+                    <div class="space-y-12 relative z-10 py-8">
+                        ${modules.map((m, idx) => {
+            const progressItems = Object.values(store.data.progress[m.id] || {});
+            const progress = progressItems.length > 0 ? progressItems.reduce((a, b) => a + b, 0) / progressItems.length : 0;
+
+            let isLocked = false;
+            if (idx > 0) {
+                const prevModule = modules[idx - 1];
+                const prevItems = Object.values(store.data.progress[prevModule.id] || {});
+                const prevProgress = prevItems.length > 0 ? prevItems.reduce((a, b) => a + b, 0) / prevItems.length : 0;
+                isLocked = prevProgress < 30;
+            }
+
+            return `
+                                <div class="flex items-center space-x-4 ${idx % 2 === 0 ? 'flex-row' : 'flex-row-reverse space-x-reverse'}">
+                                    <div class="flex-1 text-${idx % 2 === 0 ? 'right' : 'left'}">
+                                        <h3 class="font-bold text-gray-800">${m.name}</h3>
+                                        <p class="text-xs text-gray-500 font-urdu">${m.urdu}</p>
+                                        <div class="mt-2 inline-flex items-center bg-white px-2 py-1 rounded-full border border-gray-100 shadow-sm">
+                                            <div class="w-8 h-1 bg-gray-100 rounded-full overflow-hidden mr-2">
+                                                <div class="bg-primary h-full" style="width: ${progress}%"></div>
+                                            </div>
+                                            <span class="text-[9px] font-bold text-primary">${Math.round(progress)}%</span>
+                                        </div>
+                                    </div>
+                                    <div class="relative z-20 flex flex-col items-center flex-none">
+                                        <div onclick="${isLocked ? `alert('Unlock by reaching 30% in previous module!')` : `app.navigate('${m.route}')`}" 
+                                             class="w-20 h-20 rounded-full bg-white shadow-lg border-4 ${isLocked ? 'border-gray-200 grayscale opacity-50' : 'border-primary cursor-pointer hover:scale-110 active:scale-95'} flex items-center justify-center text-3xl transition-all relative z-20">
+                                            ${isLocked ? '🔒' : m.icon}
+                                        </div>
+                                        ${idx < modules.length - 1 ? `
+                                            <div class="absolute top-20 w-3 h-12 bg-primary/10"></div>
+                                        ` : ''}
+                                    </div>
+                                    <div class="flex-1"></div>
+                                </div>
+                            `;
+        }).join('')}
+                    </div>
+                </div>
+
+                ${this.getBottomNav()}
+            </div>
+        `;
+    }
+
+    async downloadNotes(id, mode) {
+        let data;
+        if (mode === 'tenses') data = tenses[id];
+        else if (mode === 'activePassive') data = activePassive[id];
+        else if (mode === 'grammarBasics') data = grammarBasics[id];
+        else data = directIndirect[id];
+
+        if (!data) return;
+
+        const printWin = window.open('', '', 'width=800,height=600');
+        printWin.document.write(`
+            <html>
+                <head>
+                    <title>Al Imran Tense Learner - ${data.name}</title>
+                    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Noto+Nastaliq+Urdu&display=swap" rel="stylesheet">
+                    <style>
+                        body { font-family: 'Inter', sans-serif; padding: 40px; color: #333; line-height: 1.6; }
+                        .urdu { font-family: 'Noto Nastaliq Urdu', serif; direction: rtl; line-height: 2.5; font-size: 1.2em; }
+                        h1 { color: #3b82f6; border-bottom: 2px solid #3b82f6; padding-bottom: 10px; margin-bottom: 30px; }
+                        .section { margin-top: 30px; background: #fff; padding: 20px; border: 1px solid #eee; border-radius: 15px; }
+                        .section-title { font-weight: bold; color: #111; margin-bottom: 10px; text-transform: uppercase; font-size: 0.8em; }
+                        .example { background: #f9fafb; padding: 15px; border-radius: 12px; margin-top: 10px; border-left: 4px solid #3b82f6; }
+                        .btn-print { background: #3b82f6; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; margin-bottom: 20px; font-weight: bold; }
+                        @media print { .btn-print { display: none; } }
+                    </style>
+                </head>
+                <body>
+                    <button class="btn-print" onclick="window.print()">Print Notes / پرنٹ کریں</button>
+                    <h1>${data.name} / ${data.urduName || ''}</h1>
+                    
+                    <div class="section">
+                        <div class="section-title">Definition / تعریف</div>
+                        <p>${data.theory?.english || data.rules?.english || data.rule || ''}</p>
+                        <p class="urdu">${data.theory?.urdu || data.rules?.urdu || ''}</p>
+                    </div>
+
+                    <div class="section">
+                        <div class="section-title">Examples / مثالیں</div>
+                        ${(data.examples || []).map(ex => `
+                            <div class="example">
+                                <strong>${ex.english || ex.active || ex.direct}</strong>
+                                <p class="urdu">${ex.urdu}</p>
+                            </div>
+                        `).join('')}
+                    </div>
+                </body>
+            </html>
+        `);
+        printWin.document.close();
     }
 }
 

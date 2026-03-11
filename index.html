@@ -13,6 +13,74 @@
         rel="stylesheet">
     <!-- Compiled Tailwind CSS -->
     <link rel="stylesheet" href="dist/output.css">
+    <style>
+        /* Base / Default theme variables */
+        :root {
+            --color-soft-gray-bg: #f3f4f6;
+            --color-card-bg: #ffffff;
+            --color-text-main: #111827;
+            --color-text-dim: #6b7280;
+            --color-primary-accent: #3b82f6;
+            --color-primary-accent-bg: #eff6ff;
+            --color-border-subtle: #f3f4f6;
+        }
+
+        /* Dark Mode */
+        .theme-dark {
+            --color-soft-gray-bg: #0f172a;
+            --color-card-bg: #1e293b;
+            --color-text-main: #f8fafc;
+            --color-text-dim: #94a3b8;
+            --color-primary-accent: #60a5fa;
+            --color-primary-accent-bg: #1e3a8a;
+            --color-border-subtle: #334155;
+        }
+
+        /* Neon Nights */
+        .theme-neon {
+            --color-soft-gray-bg: #000000;
+            --color-card-bg: #111111;
+            --color-text-main: #ffffff;
+            --color-text-dim: #a3a3a3;
+            --color-primary-accent: #00ff00;
+            --color-primary-accent-bg: #003300;
+            --color-border-subtle: #262626;
+        }
+
+        /* Royal Gold */
+        .theme-royal {
+            --color-soft-gray-bg: #1a1a1a;
+            --color-card-bg: #2d2d2d;
+            --color-text-main: #ffd700;
+            --color-text-dim: #b8860b;
+            --color-primary-accent: #d4af37;
+            --color-primary-accent-bg: #4b3e0e;
+            --color-border-subtle: #404040;
+        }
+
+        /* Essential background transition */
+        body {
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        /* Custom scrollbar for better feel */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+        }
+
+        .theme-dark ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+        }
+    </style>
 </head>
 
 <body class="bg-soft-gray font-inter text-gray-900 min-h-screen">
